@@ -1,0 +1,13 @@
+[
+  {
+    "key": "ctrl+shift+h",
+    "command": "workbench.action.tasks.runTask",
+    "args": "Flutter Run (Auto Hot Reload)",
+    "when": "resourceExtname == .dart"
+  },
+  {
+    "key": "ctrl+alt+r",
+    "command": "workbench.action.debug.restart",
+    "when": "debugState == 'stopped'"
+  }
+]

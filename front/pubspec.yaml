@@ -1,0 +1,54 @@
+name: flutter_getx_app
+description: Application Flutter avec architecture GetX et explications en français
+
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  google_fonts: ^6.2.1
+
+  # STATE MANAGEMENT & ROUTING
+  get: ^4.6.6
+
+  # HTTP & API
+  http: ^1.1.0
+  dio: ^5.8.0+1
+  file_picker: ^8.1.2
+  url_launcher: ^6.3.1
+
+  # DATE FORMATTING
+  intl: ^0.19.0
+
+  # LOCAL STORAGE
+  get_storage: ^2.1.1
+
+  # IOS STYLE ICONS
+  cupertino_icons: ^1.0.6
+  flutter_svg: ^2.0.17
+  path_drawing: ^1.0.1
+  xml: ^6.5.0
+  vector_math: ^2.1.4
+
+  # SECURE STORAGE (optionnel)
+  flutter_secure_storage: ^9.0.0
+
+  # ✅ WebView pour afficher le SVG nativement
+  webview_flutter: ^4.4.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
+    - assets/plan.svg

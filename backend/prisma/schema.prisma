@@ -1,0 +1,411 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ ROLES ============
+enum UserRole {
+  ADMIN
+  TEACHERDIRECTOR
+  TECHNICIAN
+  TEACHER
+  STUDENT
+  USER
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  REJECTED
+  CANCELLED
+  COMPLETED
+}
+
+// ============ AUTH & USER ============
+model User {
+  id        Int       @id @default(autoincrement())
+  username  String    @unique @db.VarChar(255)
+  email     String    @unique @db.VarChar(255)
+  password  String    @db.VarChar(255)
+  role      String    @default("USER") @db.VarChar(255)
+  confirmed Boolean   @default(false)
+  blocked   Boolean   @default(false)
+  
+  // Relations
+  reservations Reservation[]
+  teamMembers  TeamMember[]
+  coursesAsInstructor         Course[]                 @relation("CourseInstructor")
+  assignmentsAsInstructor     Assignment[]             @relation("AssignmentInstructor")
+  submissions                 Submission[]
+  enrollments                 Enrollment[]
+  trainingSessionsAsInstructor TrainingSession[] @relation("SessionInstructor")
+  trainingSessionsAttending    TrainingSessionAttendee[]
+  associationAdmin Association[] @relation("AssociationAdmin")
+  associationMemberships AssociationMember[]
+  notifications               Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([username])
+}
+
+// ============ SPACES ============
+model Space {
+  id                          Int       @id @default(autoincrement())
+  slug                        String    @unique @db.VarChar(100) // Ex: "espace1", "espace2" (pour plan interactif)
+  name                        String    @db.VarChar(255)
+  type                        String    @db.VarChar(100) // "Espace de Travail", "Salle de Réunion", etc.
+  description                 String?   @db.Text
+  location                    String?   @db.VarChar(255)
+  floor                       String?   @db.VarChar(50) // Étage (peut être "1", "RDC", "Sous-sol", etc.)
+  capacity                    Int?      // Nombre de personnes
+  surface                     Float?    // Surface en m²
+  width                       Float?    // Largeur en m
+  height                      Float?    // Hauteur en m
+  status                      String    @default("Disponible") @db.VarChar(50) // "Disponible", "Indisponible", "Maintenance"
+  
+  // Tarification
+  hourlyRate                  Float?    // Tarif horaire
+  dailyRate                   Float?    // Tarif journalier
+  monthlyRate                 Float?    // Tarif mensuel
+  overtimeRate                Float?    // Tarif heures supplémentaires
+  currency                    String    @default("TND") @db.VarChar(10) // Devise (TND, EUR, USD, etc.)
+  
+  // Caractéristiques
+  isCoworkingSpace            Boolean   @default(false)
+  allowLimitedReservations    Boolean   @default(false)
+  available24h                Boolean   @default(false)
+  features                    String?   @db.Text // JSON: ["WiFi", "Projector", "Whiteboard"]
+  imageUrl                    String?   @db.VarChar(500)
+
+  // Relations
+  reservations                Reservation[]
+  equipment                   SpaceEquipment[]
+  openingHours                OpeningHour[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([status])
+}
+
+// ============ EQUIPMENT ============
+model Equipment {
+  id                 Int       @id @default(autoincrement())
+  name               String    @db.VarChar(255)
+  type               String?   @db.VarChar(100)
+  mystatus           String    @default("Disponible") @db.VarChar(50)
+  serialNumber       String?   @db.VarChar(255)
+  purchaseDate       DateTime?
+  purchasePrice      Float?
+  pricePerDay        Float?
+  warrantyExpiry     DateTime?
+  description        String?   @db.Text
+  notes              String?   @db.Text
+  quantity           Int       @default(1)
+  available          Boolean   @default(true)
+  imageUrl           String?   @db.VarChar(500)
+
+  // Relations
+  spaces      SpaceEquipment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([mystatus])
+}
+
+model SpaceEquipment {
+  id          Int       @id @default(autoincrement())
+  space       Space     @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  spaceId     Int
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  equipmentId Int
+  quantity    Int       @default(1)
+
+  @@unique([spaceId, equipmentId])
+}
+
+// ============ OPENING HOURS ============
+model OpeningHour {
+  id        Int     @id @default(autoincrement())
+  space     Space   @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  spaceId   Int
+  dayOfWeek Int     // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+  openTime  String  @db.VarChar(5)  // "09:00"
+  closeTime String  @db.VarChar(5)  // "18:00"
+  closed    Boolean @default(false)
+
+  @@unique([spaceId, dayOfWeek])
+}
+
+// ============ RESERVATIONS ============
+model Reservation {
+  id              Int                 @id @default(autoincrement())
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          Int
+  space           Space               @relation(fields: [spaceId], references: [id], onDelete: Cascade)
+  spaceId         Int
+  status          ReservationStatus   @default(PENDING)
+  startDateTime   DateTime
+  endDateTime     DateTime
+  organizerName   String?             @db.VarChar(255)
+  organizerPhone  String?             @db.VarChar(50)
+  attendees       Int                 @default(1)
+  isAllDay        Boolean             @default(false)
+  totalAmount     Float               @default(0)
+  paymentMethod   String?             @db.VarChar(100)
+  paymentStatus   String?             @db.VarChar(100)
+  notes           String?             @db.Text
+  
+  // Relations for notifications
+  notifications   Notification[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([spaceId])
+  @@index([startDateTime])
+}
+
+// ============ TRAINING & COURSES ============
+model Course {
+  id          Int     @id @default(autoincrement())
+  title       String  @db.VarChar(255)
+  description String? @db.Text
+  level       String  @default("Débutant") @db.VarChar(50)
+  price       Float   @default(0)
+  status      String  @default("Brouillon") @db.VarChar(50)
+  instructorId Int?
+  instructor   User?  @relation("CourseInstructor", fields: [instructorId], references: [id], onDelete: SetNull)
+
+  // Relations
+  teams       Team[]
+  sessions    TrainingSession[]
+  assignments Assignment[]
+  enrollments Enrollment[]
+  notifications Notification[]
+
+  @@index([title])
+  @@index([level])
+  @@index([status])
+  @@index([instructorId])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Team {
+  id        Int    @id @default(autoincrement())
+  name      String @db.VarChar(255)
+  course    Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId  Int
+
+  // Relations
+  members   TeamMember[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeamMember {
+  id        Int    @id @default(autoincrement())
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  team      Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId    Int
+  role      String @default("member") // "member", "leader"
+
+  @@unique([userId, teamId])
+}
+
+model TrainingSession {
+  id              Int       @id @default(autoincrement())
+  course          Course?   @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseId        Int?
+  title           String    @db.VarChar(255)
+  type            String    @default("En_ligne") @db.VarChar(50)
+  maxParticipants Int       @default(10)
+  startDate       DateTime?
+  endDate         DateTime?
+  meetingUrl      String?   @db.VarChar(500)
+  mystatus        String    @default("Planifiée") @db.VarChar(50)
+  notes           String?   @db.Text
+  description     String?   @db.Text
+  instructorId    Int?
+  instructor      User?     @relation("SessionInstructor", fields: [instructorId], references: [id], onDelete: SetNull)
+  attendees       TrainingSessionAttendee[]
+  notifications   Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseId])
+  @@index([instructorId])
+  @@index([mystatus])
+  @@index([startDate])
+}
+
+model TrainingSessionAttendee {
+  id        Int             @id @default(autoincrement())
+  session   TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sessionId Int
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    Int
+  createdAt DateTime        @default(now())
+
+  @@unique([sessionId, userId])
+  @@index([sessionId])
+  @@index([userId])
+}
+
+model Assignment {
+  id                  Int         @id @default(autoincrement())
+  title               String      @db.VarChar(255)
+  description         String?     @db.Text
+  dueDate             DateTime
+  maxPoints           Int         @default(100)
+  passingScore        Int         @default(0)
+  allowLateSubmission Boolean     @default(false)
+  attachment          Int?
+  course              Course?     @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseId            Int?
+  instructor          User?       @relation("AssignmentInstructor", fields: [instructorId], references: [id], onDelete: SetNull)
+  instructorId        Int?
+  submissions         Submission[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([courseId])
+  @@index([instructorId])
+  @@index([dueDate])
+}
+
+model Submission {
+  id           Int        @id @default(autoincrement())
+  assignment   Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  assignmentId Int
+  student      User       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId    Int
+  content      String?    @db.Text
+  grade        Float?
+  status       String     @default("SUBMITTED") @db.VarChar(50)
+  submittedAt  DateTime   @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assignmentId])
+  @@index([studentId])
+  @@unique([assignmentId, studentId])
+}
+
+model Enrollment {
+  id         Int      @id @default(autoincrement())
+  student    User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  studentId  Int
+  course     Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  courseId   Int
+  mystatus   String   @default("Active") @db.VarChar(50)
+  enrolledAt DateTime @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([courseId])
+  @@unique([studentId, courseId])
+}
+
+// ============ ASSOCIATIONS ============
+model Association {
+  id          Int     @id @default(autoincrement())
+  name        String  @db.VarChar(255)
+  description String? @db.Text
+  email       String? @db.VarChar(255)
+  phone       String? @db.VarChar(50)
+  website     String? @db.VarChar(500)
+  budget      Float   @default(0)
+  currency    String  @default("TND") @db.VarChar(10)
+  verified    Boolean @default(false)
+  logoUrl     String? @db.VarChar(500)
+
+  adminId     Int?
+  admin       User?   @relation("AssociationAdmin", fields: [adminId], references: [id], onDelete: SetNull)
+  members     AssociationMember[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AssociationMember {
+  id            Int         @id @default(autoincrement())
+  association   Association @relation(fields: [associationId], references: [id], onDelete: Cascade)
+  associationId Int
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        Int
+  role          String      @default("MEMBER") @db.VarChar(50)
+  joinedAt      DateTime    @default(now())
+
+  @@unique([associationId, userId])
+  @@index([associationId])
+  @@index([userId])
+}
+
+// ============ NOTIFICATIONS ============
+enum NotificationType {
+  RESERVATION_CONFIRMATION
+  RESERVATION_REMINDER_24H
+  RESERVATION_REMINDER_1H
+  RESERVATION_MODIFIED
+  RESERVATION_CANCELLED
+  NEW_COURSE_AVAILABLE
+  TRAINING_SESSION_STARTED
+  TEACHER_MESSAGE
+  SUBSCRIPTION_PAYMENT_DUE
+  PROMOTION_OFFER
+}
+
+model Notification {
+  id             Int              @id @default(autoincrement())
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId         Int
+  type           NotificationType
+  title          String           @db.VarChar(255)
+  body           String           @db.Text
+  data           Json?            @db.Json // Extra context data
+  isRead         Boolean          @default(false)
+  readAt         DateTime?
+  
+  // Associations aux entités
+  reservation    Reservation?     @relation(fields: [reservationId], references: [id], onDelete: SetNull)
+  reservationId  Int?
+  course         Course?          @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  courseId       Int?
+  session        TrainingSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  sessionId      Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([reservationId])
+  @@index([courseId])
+  @@index([sessionId])
+}

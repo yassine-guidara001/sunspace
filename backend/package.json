@@ -1,0 +1,37 @@
+{
+  "name": "sunspace-backend",
+  "version": "1.0.0",
+  "description": "Backend Node.js pour Sunspace - Migration Strapi vers Express + Prisma + MySQL",
+  "main": "src/index.js",
+  "scripts": {
+    "prestart": "node scripts/free-port.js 3001",
+    "start": "node src/index.js",
+    "predev": "node scripts/free-port.js 3001",
+    "dev": "nodemon src/index.js",
+    "seed:dev": "node scripts/seed-dev.js",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:generate": "prisma generate",
+    "prisma:studio": "prisma studio"
+  },
+  "keywords": [],
+  "author": "Sunspace Team",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/client": "^5.0.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "express-rate-limit": "^6.7.0",
+    "helmet": "^7.0.0",
+    "joi": "^17.9.0",
+    "jsonwebtoken": "^9.0.0",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22",
+    "prisma": "^5.0.0"
+  }
+}

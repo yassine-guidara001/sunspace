@@ -1,0 +1,446 @@
+﻿import 'package:flutter/material.dart';
+import 'package:flutter_getx_app/app/core/service/storage_service.dart';
+import 'package:get/get.dart';
+import 'package:flutter_getx_app/app/modules/home/contollers/home_controller.dart';
+import 'package:flutter_getx_app/app/routes/app_routes.dart';
+
+class CustomSidebar extends StatelessWidget {
+  const CustomSidebar({super.key});
+
+  static const double _expandedWidth = 280;
+  static const double _collapsedWidth = 74;
+
+  @override
+  Widget build(BuildContext context) {
+    final HomeController controller = Get.find<HomeController>();
+
+    return Obx(() {
+      final isCollapsed = controller.isSidebarCollapsed.value;
+
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        width: isCollapsed ? _collapsedWidth : _expandedWidth,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(right: BorderSide(color: Color(0xFFE2E8F0))),
+        ),
+        padding: EdgeInsets.fromLTRB(
+            isCollapsed ? 8 : 16, 20, isCollapsed ? 8 : 16, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(controller, isCollapsed),
+            const SizedBox(height: 20),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _menuItem(controller, 0, Icons.grid_view, 'Tableau de bord',
+                        Routes.HOME, isCollapsed),
+                   _menuItem(
+    controller,
+    1,
+    Icons.location_on_outlined,
+    'RÃ©server un espace',
+    Routes.PLAN,               // â† route correcte
+    isCollapsed), 
+                    _menuItem(
+                        controller,
+                        2,
+                        Icons.calendar_today_outlined,
+                        'Mes RÃ©servations',
+                        Routes.MY_RESERVATIONS,
+                        isCollapsed),
+                    const SizedBox(height: 8),
+                    _menuItem(controller, 3, Icons.business_outlined, 'Espaces',
+                        Routes.SPACES, isCollapsed),
+                    _menuItem(controller, 4, Icons.build_circle_outlined,
+                        'Ã‰quipements', Routes.EQUIPMENTS, isCollapsed),
+                    _menuItem(controller, 5, Icons.people_alt_outlined,
+                        'Utilisateurs', Routes.USERS, isCollapsed),
+                    _menuItem(controller, 6, Icons.calendar_today_outlined,
+                        'RÃ©servations', Routes.RESERVATIONS, isCollapsed),
+                    _menuItem(controller, 7, Icons.handshake_outlined,
+                        'Associations', Routes.ASSOCIATIONS, isCollapsed),
+                    const SizedBox(height: 20),
+                    _sectionTitle('ENSEIGNANT', isCollapsed),
+                    _menuItem(controller, 8, Icons.menu_book_outlined,
+                        'Formations', Routes.FORMATIONS, isCollapsed),
+                    _menuItem(controller, 9, Icons.layers_outlined, 'Sessions',
+                        Routes.SESSIONS, isCollapsed),
+                    _menuItem(controller, 10, Icons.school_outlined,
+                        'Ã‰tudiants', Routes.TEACHER_STUDENTS, isCollapsed),
+                    _menuItem(controller, 11, Icons.chrome_reader_mode_outlined,
+                        'Devoirs', Routes.DEVOIRS, isCollapsed),
+                    _menuItem(controller, 12, Icons.forum_outlined,
+                        'Communication', Routes.COMMUNICATION, isCollapsed),
+                    const SizedBox(height: 20),
+                    _sectionTitle('Ã‰TUDIANT', isCollapsed),
+                    _menuItem(controller, 13, Icons.menu_book_outlined,
+                        'Mes cours', Routes.FORMATIONS, isCollapsed),
+                    _menuItem(controller, 14, Icons.assignment_outlined,
+                        'Mes devoirs', Routes.DEVOIRS, isCollapsed),
+                    _menuItem(controller, 15, Icons.school_outlined,
+                        'Catalogue Cours', Routes.FORMATIONS, isCollapsed),
+                    _menuItem(controller, 16, Icons.apartment_outlined,
+                        'Espaces d\'Ã©tude', Routes.STUDENT_SPACES, isCollapsed),
+                    _menuItem(controller, 17, Icons.calendar_today_outlined,
+                        'Sessions', Routes.SESSIONS, isCollapsed),
+                    _menuItem(controller, 18, Icons.place_outlined,
+                        'Plan des espaces', Routes.SPACES, isCollapsed),
+                    _menuItem(controller, 19, Icons.groups_outlined,
+                        'Communication', Routes.COMMUNICATION, isCollapsed),
+                    const SizedBox(height: 20),
+                    _sectionTitle('PROFESSIONNEL', isCollapsed),
+                    _menuItem(controller, 20, Icons.school_outlined,
+                        'Formations', Routes.FORMATIONS, isCollapsed),
+                    _menuItem(
+                        controller,
+                        21,
+                        Icons.credit_card_outlined,
+                        'Abonnements',
+                        Routes.PROFESSIONAL_SUBSCRIPTIONS,
+                        isCollapsed),
+                    _menuItem(controller, 22, Icons.person_outline,
+                        'Mon profil', Routes.PROFILE, isCollapsed),
+                    const SizedBox(height: 20),
+                    _sectionTitle('ASSOCIATION', isCollapsed),
+                    _menuItem(controller, 23, Icons.school_outlined,
+                        'Formations', Routes.FORMATIONS, isCollapsed),
+                    _menuItem(controller, 24, Icons.people_outline, 'Membres',
+                        Routes.ASSOCIATION_MEMBERS, isCollapsed),
+                    _menuItem(
+                        controller,
+                        25,
+                        Icons.bar_chart_outlined,
+                        'Budget & Utilisation',
+                        Routes.ASSOCIATION_BUDGET_USAGE,
+                        isCollapsed),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildFooter(controller, isCollapsed),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildHeader(HomeController controller, bool isCollapsed) {
+    return Row(
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0B6BFF),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Center(
+            child: Text(
+              'S',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        if (!isCollapsed) ...[
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SUNSPACE',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                Text(
+                  'Dashboard',
+                  style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+        ] else
+          const Spacer(),
+        Tooltip(
+          message: isCollapsed ? 'Agrandir le menu' : 'RÃ©duire le menu',
+          child: InkWell(
+            onTap: controller.toggleSidebarCollapse,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Icon(
+                isCollapsed
+                    ? Icons.keyboard_double_arrow_right
+                    : Icons.keyboard_double_arrow_left,
+                size: 16,
+                color: const Color(0xFF475569),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sectionTitle(String title, bool isCollapsed) {
+    if (isCollapsed) {
+      return const SizedBox(height: 8);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: Colors.grey,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.1,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFooter(HomeController controller, bool isCollapsed) {
+    final storage = Get.find<StorageService>();
+    final storedEmail = (storage.read<String>('last_login_email') ?? '').trim();
+    final displayEmail = controller.currentEmail.value.isNotEmpty
+        ? controller.currentEmail.value
+        : storedEmail;
+    final displayName = controller.currentUsername.value == 'Utilisateur' &&
+            displayEmail.isNotEmpty
+        ? displayEmail
+        : controller.currentUsername.value;
+    final displayInitial = displayName.isNotEmpty
+        ? displayName.substring(0, 1).toUpperCase()
+        : 'U';
+
+    if (isCollapsed) {
+      return Column(
+        children: [
+          Tooltip(
+            message: displayName,
+            child: CircleAvatar(
+              radius: 13,
+              backgroundColor: const Color(0xFFDDEAFE),
+              child: Text(
+                displayInitial,
+                style: TextStyle(
+                  color: Color(0xFF0B6BFF),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Tooltip(
+            message: 'ParamÃ¨tres',
+            child: InkWell(
+              onTap: controller.openSettings,
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEEF2FF),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.settings_outlined,
+                  size: 16,
+                  color: Color(0xFF0B6BFF),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Tooltip(
+            message: 'DÃ©connexion',
+            child: InkWell(
+              onTap: () => Get.offAllNamed(Routes.LOGIN),
+              borderRadius: BorderRadius.circular(10),
+              child: Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.logout,
+                  size: 16,
+                  color: Color(0xFF64748B),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: Color(0xFFDDEAFE),
+                child: Text(
+                  displayInitial,
+                  style: TextStyle(
+                    color: Color(0xFF0B6BFF),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(displayName,
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text(
+                      displayEmail.isEmpty
+                          ? 'email indisponible'
+                          : displayEmail,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              Tooltip(
+                message: 'ParamÃ¨tres',
+                child: InkWell(
+                  onTap: controller.openSettings,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEEF2FF),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.settings_outlined,
+                      size: 16,
+                      color: Color(0xFF0B6BFF),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        InkWell(
+          onTap: () => Get.offAllNamed(Routes.LOGIN),
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFE2E8F0)),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.logout, size: 18, color: Colors.grey),
+                SizedBox(width: 8),
+                Text('DÃ©connexion',
+                    style: TextStyle(fontWeight: FontWeight.w500)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _menuItem(
+    HomeController controller,
+    int index,
+    IconData icon,
+    String title,
+    String route,
+    bool isCollapsed,
+  ) {
+    return Obx(() {
+      final isSelected = controller.selectedMenu.value == index;
+      final content = Container(
+        height: 40,
+        padding: EdgeInsets.symmetric(horizontal: isCollapsed ? 0 : 12),
+        margin: const EdgeInsets.only(bottom: 4),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF0B6BFF) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisAlignment:
+              isCollapsed ? MainAxisAlignment.center : MainAxisAlignment.start,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? Colors.white : const Color(0xFF64748B),
+              size: 19,
+            ),
+            if (!isCollapsed) ...[
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : const Color(0xFF1E293B),
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      );
+
+      final tappable = InkWell(
+        onTap: () => controller.changeMenu(index, route),
+        borderRadius: BorderRadius.circular(12),
+        child: content,
+      );
+
+      if (isCollapsed) {
+        return Tooltip(message: title, child: tappable);
+      }
+
+      return tappable;
+    });
+  }
+}
