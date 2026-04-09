@@ -16,12 +16,16 @@ class StudentSpacePaymentView extends StatefulWidget {
     required this.plan,
     required this.startDate,
     required this.startTime,
+    required this.endDate,
+    required this.endTime,
   });
 
   final Space space;
   final String plan;
   final DateTime startDate;
   final TimeOfDay startTime;
+  final DateTime endDate;
+  final TimeOfDay endTime;
 
   @override
   State<StudentSpacePaymentView> createState() =>
@@ -85,28 +89,37 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
       final h = widget.startTime.hour.toString().padLeft(2, '0');
       final m = widget.startTime.minute.toString().padLeft(2, '0');
 
-      DateTime endDateTime;
-      if (widget.plan == 'monthly') {
-        endDateTime = widget.startDate.add(const Duration(days: 30));
-      } else {
-        endDateTime = DateTime(
-          widget.startDate.year,
-          widget.startDate.month,
-          widget.startDate.day,
-          widget.startTime.hour + 1,
-          widget.startTime.minute,
-        );
+      final startDateTime = DateTime(
+        widget.startDate.year,
+        widget.startDate.month,
+        widget.startDate.day,
+        widget.startTime.hour,
+        widget.startTime.minute,
+      );
+
+      DateTime endDateTime = DateTime(
+        widget.endDate.year,
+        widget.endDate.month,
+        widget.endDate.day,
+        widget.endTime.hour,
+        widget.endTime.minute,
+      );
+
+      if (!endDateTime.isAfter(startDateTime)) {
+        endDateTime = widget.plan == 'monthly'
+            ? startDateTime.add(const Duration(days: 30))
+            : startDateTime.add(const Duration(hours: 1));
       }
 
-      final startDt = '${dateStr}T$h:$m:00.000Z';
       final endDt = endDateTime
           .toIso8601String()
-          .replaceFirst(RegExp(r'\.\d+Z?$'), '.000Z');
+          .replaceFirst(RegExp(r'\.\d+Z?$'), '.000');
+      final localStartDt = '${dateStr}T$h:$m:00.000';
 
       final payload = {
         'data': {
           'space': widget.space.id.toString(),
-          'start_datetime': startDt,
+          'start_datetime': localStartDt,
           'end_datetime': endDt,
           'is_all_day': widget.plan == 'monthly',
           'attendees': 1,
@@ -388,9 +401,11 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
                     const SizedBox(height: 6),
                     _textInput(
                       controller: _cvcController,
-                      hint: '000',
+                      hint: '...',
                       textAlign: TextAlign.center,
                       keyboardType: TextInputType.number,
+                      obscureText: true,
+                      obscuringCharacter: '.',
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
                         LengthLimitingTextInputFormatter(3),
@@ -552,6 +567,8 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
     TextAlign textAlign = TextAlign.left,
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
+    bool obscureText = false,
+    String obscuringCharacter = '*',
   }) {
     return Container(
       height: 42,
@@ -564,6 +581,8 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
         textAlign: textAlign,
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
+        obscureText: obscureText,
+        obscuringCharacter: obscuringCharacter,
         style: const TextStyle(
             color: Color(0xFF0F172A), fontWeight: FontWeight.w500),
         decoration: InputDecoration(

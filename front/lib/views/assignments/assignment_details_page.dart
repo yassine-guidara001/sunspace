@@ -456,7 +456,7 @@ class AssignmentDetailsPage extends GetView<AssignmentsController> {
     if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
       return normalized;
     }
-    return 'http://193.111.250.244:3046$normalized';
+    return 'http://localhost:3001$normalized';
   }
 
   Future<void> _downloadAttachment() async {
@@ -472,7 +472,15 @@ class AssignmentDetailsPage extends GetView<AssignmentsController> {
       return;
     }
 
-    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    var launched = await launchUrl(
+      uri,
+      mode: LaunchMode.platformDefault,
+      webOnlyWindowName: '_blank',
+    );
+    if (!launched) {
+      launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+
     if (!launched) {
       Get.snackbar('Erreur', 'Impossible d’ouvrir le document');
     }

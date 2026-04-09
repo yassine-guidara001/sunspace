@@ -7,6 +7,8 @@ import 'notifications_page.dart';
 class HomeView extends GetView<HomeController> {
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 920;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       body: Row(
@@ -15,10 +17,10 @@ class HomeView extends GetView<HomeController> {
           Expanded(
             child: Column(
               children: [
-                _buildAppBar(),
+                _buildAppBar(context, isCompact),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: EdgeInsets.all(isCompact ? 16.0 : 24.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -39,21 +41,31 @@ class HomeView extends GetView<HomeController> {
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(BuildContext context, bool isCompact) {
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: isCompact ? 60 : 70,
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 24),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
       child: Row(
         children: [
-          const Text("Dashboard",
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.bold,
-              )),
+          if (isCompact) ...[
+            IconButton(
+              tooltip: 'Menu',
+              onPressed: () => CustomSidebar.openDrawerMenu(context),
+              icon: const Icon(Icons.menu, color: Colors.black87),
+            ),
+            const SizedBox(width: 4),
+          ],
+          const Text(
+            "Dashboard",
+            style: TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.grey, size: 20),

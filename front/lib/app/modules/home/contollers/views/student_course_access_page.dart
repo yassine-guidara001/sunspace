@@ -1,10 +1,14 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_getx_app/app/core/service/storage_service.dart';
 import 'package:flutter_getx_app/app/data/models/course_model.dart';
 import 'package:flutter_getx_app/app/data/services/courses_api.dart';
+import 'package:flutter_getx_app/app/modules/home/contollers/home_controller.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/custom_sidebar.dart';
+import 'package:flutter_getx_app/app/routes/app_routes.dart';
 import 'package:flutter_getx_app/models/assignment_model.dart';
 import 'package:flutter_getx_app/services/assignments_api.dart';
 import 'package:get/get.dart';
@@ -31,6 +35,8 @@ class _StudentCourseAccessPageState extends State<StudentCourseAccessPage> {
 
   final AssignmentsApi _assignmentsApi = AssignmentsApi();
   final CoursesApi _coursesApi = CoursesApi();
+  final StorageService _storageService = Get.find<StorageService>();
+  final HomeController _homeController = Get.find<HomeController>();
   final TextEditingController _searchCtrl = TextEditingController();
 
   late int _activeTab;
@@ -40,13 +46,27 @@ class _StudentCourseAccessPageState extends State<StudentCourseAccessPage> {
   Map<int, List<Map<String, dynamic>>> _submissionsByAssignment =
       const <int, List<Map<String, dynamic>>>{};
   Course? _loadedCourse;
+  List<String> _lessons = const <String>[];
+  Set<int> _completedLessonIndexes = <int>{};
 
   Course get _currentCourse => _loadedCourse ?? widget.course;
+  int get _completedLessonsCount => _completedLessonIndexes.length;
+  int get _totalLessonsCount => _lessons.length;
+  int get _progressPercent {
+    if (_totalLessonsCount == 0) return 0;
+    return ((_completedLessonsCount / _totalLessonsCount) * 100).round();
+  }
+
+  double get _progressValue {
+    if (_totalLessonsCount == 0) return 0;
+    return _completedLessonsCount / _totalLessonsCount;
+  }
 
   @override
   void initState() {
     super.initState();
     _activeTab = widget.initialTab.clamp(0, 1);
+    _prepareLessonsAndProgress(widget.course);
 
     // Charger les données du cours au démarrage
     _loadCourseData();
@@ -71,6 +91,7 @@ class _StudentCourseAccessPageState extends State<StudentCourseAccessPage> {
         setState(() {
           _loadedCourse = courseDetails;
         });
+        await _prepareLessonsAndProgress(courseDetails);
 
         if (_activeTab == 1 && !_isLoadingAssignments) {
           await _loadTodoAssignments();
@@ -157,8 +178,128 @@ class _StudentCourseAccessPageState extends State<StudentCourseAccessPage> {
     }).toList();
   }
 
+  Future<void> _prepareLessonsAndProgress(Course course) async {
+    final extractedLessons = _extractLessons(course);
+    final restoredIndexes =
+        _readProgressIndexes(course, extractedLessons.length);
+
+    if (!mounted) return;
+    setState(() {
+      _lessons = extractedLessons;
+      _completedLessonIndexes = restoredIndexes;
+    });
+  }
+
+  List<String> _extractLessons(Course course) {
+    final description = course.description.trim();
+
+    if (description.isNotEmpty) {
+      final lines = description
+          .split(RegExp(r'[\r\n]+'))
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty)
+          .toList();
+
+      final bulletPattern = RegExp(r'^([\-*•]|\d+[\.)-])\s+');
+      final bulletLessons = lines
+          .where((line) => bulletPattern.hasMatch(line))
+          .map((line) => line.replaceFirst(bulletPattern, '').trim())
+          .where((line) => line.isNotEmpty)
+          .toList();
+
+      if (bulletLessons.isNotEmpty) {
+        return bulletLessons;
+      }
+
+      final sentenceLessons = description
+          .split(RegExp(r'[.!?]+'))
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty)
+          .take(8)
+          .toList();
+
+      if (sentenceLessons.isNotEmpty) {
+        return sentenceLessons;
+      }
+    }
+
+    final baseTitle = course.title.trim().isEmpty ? 'ce cours' : course.title;
+    return <String>[
+      'Découvrir les objectifs de $baseTitle',
+      'Étudier les notions essentielles',
+      'Valider les acquis avec un exercice',
+    ];
+  }
+
+  Set<int> _readProgressIndexes(Course course, int lessonsLength) {
+    if (lessonsLength <= 0) return <int>{};
+
+    final raw = _storageService.read<dynamic>(_progressStorageKey(course));
+    if (raw is! Map) return <int>{};
+
+    final map = Map<String, dynamic>.from(raw as Map);
+    final completedRaw = map['completed'];
+    if (completedRaw is! List) return <int>{};
+
+    return completedRaw
+        .map((value) => int.tryParse(value.toString()))
+        .whereType<int>()
+        .where((index) => index >= 0 && index < lessonsLength)
+        .toSet();
+  }
+
+  Future<void> _toggleLessonCompletion(
+      int lessonIndex, bool isCompleted) async {
+    if (lessonIndex < 0 || lessonIndex >= _lessons.length) return;
+
+    setState(() {
+      if (isCompleted) {
+        _completedLessonIndexes.add(lessonIndex);
+      } else {
+        _completedLessonIndexes.remove(lessonIndex);
+      }
+    });
+
+    await _saveProgress();
+  }
+
+  Future<void> _saveProgress() async {
+    final sortedIndexes = _completedLessonIndexes.toList()..sort();
+    await _storageService.write(
+      _progressStorageKey(_currentCourse),
+      <String, dynamic>{
+        'completed': sortedIndexes,
+        'updatedAt': DateTime.now().toIso8601String(),
+      },
+    );
+  }
+
+  String _progressStorageKey(Course course) {
+    final dynamic userData = _storageService.getUserData() ??
+        _storageService.read<dynamic>('user_data');
+    var userId = 'anonymous';
+
+    if (userData is Map) {
+      final candidate =
+          userData['id'] ?? userData['userId'] ?? userData['user_id'];
+      if (candidate != null && candidate.toString().trim().isNotEmpty) {
+        userId = candidate.toString().trim();
+      }
+    }
+
+    final courseKey = course.id > 0
+        ? 'id_${course.id}'
+        : (course.documentId.trim().isNotEmpty
+            ? 'doc_${course.documentId.trim()}'
+            : 'title_${base64Url.encode(utf8.encode(course.title.trim().toLowerCase()))}');
+
+    return 'student_course_progress:$userId:$courseKey';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 920;
+
     return Scaffold(
       backgroundColor: _bg,
       body: Row(
@@ -167,20 +308,17 @@ class _StudentCourseAccessPageState extends State<StudentCourseAccessPage> {
           Expanded(
             child: Column(
               children: [
-                _buildTopBar(),
+                _buildTopBar(context, isCompact),
                 Expanded(
                   child: Column(
                     children: [
                       _buildHeader(context),
                       Expanded(
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Container(
+                        child: isCompact
+                            ? Container(
                                 decoration: const BoxDecoration(
                                   border: Border(
                                     top: BorderSide(color: _border),
-                                    right: BorderSide(color: _border),
                                   ),
                                 ),
                                 child: Column(
@@ -193,43 +331,101 @@ class _StudentCourseAccessPageState extends State<StudentCourseAccessPage> {
                                     ),
                                   ],
                                 ),
-                              ),
-                            ),
-                            Container(
-                              width: 210,
-                              decoration: const BoxDecoration(
-                                border: Border(
-                                  top: BorderSide(color: _border),
-                                ),
-                              ),
-                              child: const Padding(
-                                padding: EdgeInsets.fromLTRB(16, 18, 16, 12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        CircleAvatar(
-                                          radius: 3,
-                                          backgroundColor: Color(0xFF2563EB),
+                              )
+                            : Row(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      decoration: const BoxDecoration(
+                                        border: Border(
+                                          top: BorderSide(color: _border),
+                                          right: BorderSide(color: _border),
                                         ),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'PROGRESSION',
-                                          style: TextStyle(
-                                            color: Color(0xFF111827),
-                                            fontWeight: FontWeight.w700,
-                                            letterSpacing: 1,
+                                      ),
+                                      child: Column(
+                                        children: [
+                                          _buildTabs(),
+                                          Expanded(
+                                            child: _activeTab == 0
+                                                ? _buildLessonsPlaceholder()
+                                                : _buildAssignmentsPanel(),
                                           ),
-                                        ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  Container(
+                                    width: 210,
+                                    decoration: const BoxDecoration(
+                                      border: Border(
+                                        top: BorderSide(color: _border),
+                                      ),
+                                    ),
+                                    child: Padding(
+                                      padding:
+                                          EdgeInsets.fromLTRB(16, 18, 16, 12),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              CircleAvatar(
+                                                radius: 3,
+                                                backgroundColor:
+                                                    Color(0xFF2563EB),
+                                              ),
+                                              SizedBox(width: 8),
+                                              Text(
+                                                'PROGRESSION',
+                                                style: TextStyle(
+                                                  color: Color(0xFF111827),
+                                                  fontWeight: FontWeight.w700,
+                                                  letterSpacing: 1,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 14),
+                                          Text(
+                                            '$_progressPercent%',
+                                            style: const TextStyle(
+                                              color: Color(0xFF0F172A),
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 22,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(999),
+                                            child: LinearProgressIndicator(
+                                              minHeight: 8,
+                                              value: _progressValue,
+                                              backgroundColor:
+                                                  const Color(0xFFE2E8F0),
+                                              valueColor:
+                                                  const AlwaysStoppedAnimation<
+                                                      Color>(
+                                                Color(0xFF2563EB),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 10),
+                                          Text(
+                                            '$_completedLessonsCount sur $_totalLessonsCount leçons terminées',
+                                            style: const TextStyle(
+                                              color: Color(0xFF64748B),
+                                              fontWeight: FontWeight.w500,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                          ],
-                        ),
                       ),
                     ],
                   ),
@@ -242,50 +438,89 @@ class _StudentCourseAccessPageState extends State<StudentCourseAccessPage> {
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(BuildContext context, bool isCompact) {
+    if (_homeController.currentUsername.value == 'Utilisateur' &&
+        _homeController.currentEmail.value.trim().isEmpty) {
+      Future.microtask(
+          () => _homeController.refreshCurrentUserIdentity(force: false));
+    }
+
+    final displayName = _homeController.currentUsername.value.trim().isEmpty ||
+            _homeController.currentUsername.value == 'Utilisateur'
+        ? (_homeController.currentEmail.value.trim().isNotEmpty
+            ? _homeController.currentEmail.value.trim()
+            : 'Utilisateur')
+        : _homeController.currentUsername.value.trim();
+
+    final displayInitial = displayName.isNotEmpty
+        ? displayName.substring(0, 1).toUpperCase()
+        : 'U';
+
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: isCompact ? 60 : 70,
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 24),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: _border)),
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 300,
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Rechercher...',
-                hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
-                isDense: true,
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
+          if (isCompact) ...[
+            IconButton(
+              tooltip: 'Menu',
+              onPressed: () => CustomSidebar.openDrawerMenu(context),
+              icon: const Icon(Icons.menu, color: Color(0xFF475569)),
+            ),
+          ] else
+            SizedBox(
+              width: 300,
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'Rechercher...',
+                  hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                  isDense: true,
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
-          ),
           const Spacer(),
           IconButton(
-            onPressed: () {},
+            tooltip: 'Notifications',
+            onPressed: () {
+              _homeController.selectedMenu.value = -1;
+              if (Get.currentRoute != Routes.NOTIFICATIONS) {
+                Get.toNamed(Routes.NOTIFICATIONS);
+              }
+            },
             icon: const Icon(Icons.notifications_none,
                 color: Color(0xFF475569), size: 20),
           ),
-          const CircleAvatar(
+          CircleAvatar(
             radius: 14,
             backgroundColor: Color(0xFFE2E8F0),
-            child: Icon(Icons.person, size: 16, color: Colors.blue),
+            child: Text(
+              displayInitial,
+              style: const TextStyle(
+                color: Color(0xFF2563EB),
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
           ),
-          const SizedBox(width: 8),
-          const Text(
-            'intern',
-            style: TextStyle(fontWeight: FontWeight.w500),
-          ),
+          if (!isCompact) ...[
+            const SizedBox(width: 8),
+            Text(
+              displayName,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ],
         ],
       ),
     );
@@ -459,29 +694,132 @@ class _StudentCourseAccessPageState extends State<StudentCourseAccessPage> {
   }
 
   Widget _buildLessonsPlaceholder() {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.menu_book_outlined, size: 56, color: Color(0xFFD1D5DB)),
-          SizedBox(height: 16),
-          Text(
-            'Prêt à apprendre ?',
-            style: TextStyle(
-              color: Color(0xFF111827),
-              fontWeight: FontWeight.w700,
-            ),
+    if (_lessons.isEmpty) {
+      return const Center(
+        child: Text(
+          'Aucune leçon disponible pour ce cours.',
+          style: TextStyle(color: Color(0xFF94A3B8)),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: _border)),
           ),
-          SizedBox(height: 8),
-          Text(
-            'Sélectionnez votre première leçon dans le menu\nlatéral pour débuter ce cours.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF9CA3AF),
-            ),
+          child: Row(
+            children: [
+              const Icon(Icons.track_changes,
+                  size: 18, color: Color(0xFF2563EB)),
+              const SizedBox(width: 8),
+              const Text(
+                'Votre progression',
+                style: TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$_progressPercent%',
+                style: const TextStyle(
+                  color: Color(0xFF1E3A8A),
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        Expanded(
+          child: ListView.separated(
+            padding: const EdgeInsets.all(14),
+            itemCount: _lessons.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (_, index) {
+              final lessonTitle = _lessons[index];
+              final isCompleted = _completedLessonIndexes.contains(index);
+
+              return Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _border),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Checkbox(
+                      value: isCompleted,
+                      activeColor: const Color(0xFF2563EB),
+                      onChanged: (value) {
+                        _toggleLessonCompletion(index, value ?? false);
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Leçon ${index + 1}',
+                            style: const TextStyle(
+                              color: Color(0xFF64748B),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            lessonTitle,
+                            style: TextStyle(
+                              color: const Color(0xFF111827),
+                              fontWeight: isCompleted
+                                  ? FontWeight.w500
+                                  : FontWeight.w700,
+                              decoration: isCompleted
+                                  ? TextDecoration.lineThrough
+                                  : TextDecoration.none,
+                              decorationColor: const Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isCompleted
+                            ? const Color(0xFFDCFCE7)
+                            : const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        isCompleted ? 'Terminée' : 'À faire',
+                        style: TextStyle(
+                          color: isCompleted
+                              ? const Color(0xFF166534)
+                              : const Color(0xFF334155),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

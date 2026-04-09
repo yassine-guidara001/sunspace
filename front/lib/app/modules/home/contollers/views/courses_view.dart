@@ -23,6 +23,8 @@ class CoursesView extends GetView<CourseController> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 920;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       body: Row(
@@ -50,7 +52,7 @@ class CoursesView extends GetView<CourseController> {
               if (isProfessionalFormations) {
                 return Column(
                   children: [
-                    _buildTopBar(),
+                    _buildTopBar(context, isCompact),
                     const Expanded(
                       child: ProfessionalFormationsPage(),
                     ),
@@ -61,7 +63,7 @@ class CoursesView extends GetView<CourseController> {
               if (isAssociationFormations) {
                 return Column(
                   children: [
-                    _buildTopBar(),
+                    _buildTopBar(context, isCompact),
                     const Expanded(
                       child: AssociationFormationsPage(),
                     ),
@@ -71,10 +73,10 @@ class CoursesView extends GetView<CourseController> {
 
               return Column(
                 children: [
-                  _buildTopBar(),
+                  _buildTopBar(context, isCompact),
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
+                      padding: EdgeInsets.all(isCompact ? 16 : 24),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -99,10 +101,12 @@ class CoursesView extends GetView<CourseController> {
   Widget _buildStudentMyCoursesView() {
     return Column(
       children: [
-        _buildTopBar(),
+        _buildTopBar(
+            Get.context!, MediaQuery.of(Get.context!).size.width < 920),
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(
+                MediaQuery.of(Get.context!).size.width < 920 ? 16 : 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -282,7 +286,8 @@ class CoursesView extends GetView<CourseController> {
           const SizedBox(height: 16),
           const Row(
             children: [
-              Icon(Icons.access_time_outlined, size: 14, color: Color(0xFF9CA3AF)),
+              Icon(Icons.access_time_outlined,
+                  size: 14, color: Color(0xFF9CA3AF)),
               SizedBox(width: 4),
               Text(
                 '0h',
@@ -379,10 +384,12 @@ class CoursesView extends GetView<CourseController> {
   Widget _buildStudentCatalogView() {
     return Column(
       children: [
-        _buildTopBar(),
+        _buildTopBar(
+            Get.context!, MediaQuery.of(Get.context!).size.width < 920),
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(
+                MediaQuery.of(Get.context!).size.width < 920 ? 16 : 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -931,8 +938,7 @@ class CoursesView extends GetView<CourseController> {
                                   textAlign: TextAlign.center,
                                   obscureText: true,
                                   obscuringCharacter: '•',
-                                  decoration:
-                                      _paymentInputDecoration('***'),
+                                  decoration: _paymentInputDecoration('***'),
                                 ),
                               ],
                             ),
@@ -1112,50 +1118,89 @@ class CoursesView extends GetView<CourseController> {
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(BuildContext context, bool isCompact) {
+    if (_homeController.currentUsername.value == 'Utilisateur' &&
+        _homeController.currentEmail.value.trim().isEmpty) {
+      Future.microtask(
+          () => _homeController.refreshCurrentUserIdentity(force: false));
+    }
+
+    final displayName = _homeController.currentUsername.value.trim().isEmpty ||
+            _homeController.currentUsername.value == 'Utilisateur'
+        ? (_homeController.currentEmail.value.trim().isNotEmpty
+            ? _homeController.currentEmail.value.trim()
+            : 'Utilisateur')
+        : _homeController.currentUsername.value.trim();
+
+    final displayInitial = displayName.isNotEmpty
+        ? displayName.substring(0, 1).toUpperCase()
+        : 'U';
+
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: isCompact ? 60 : 70,
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 24),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 300,
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Rechercher...',
-                hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
-                isDense: true,
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
+          if (isCompact) ...[
+            IconButton(
+              tooltip: 'Menu',
+              onPressed: () => CustomSidebar.openDrawerMenu(context),
+              icon: const Icon(Icons.menu, color: Color(0xFF475569)),
+            ),
+          ] else
+            SizedBox(
+              width: 300,
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'Rechercher...',
+                  hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                  isDense: true,
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
-          ),
           const Spacer(),
           IconButton(
-            onPressed: () {},
+            tooltip: 'Notifications',
+            onPressed: () {
+              _homeController.selectedMenu.value = -1;
+              if (Get.currentRoute != Routes.NOTIFICATIONS) {
+                Get.toNamed(Routes.NOTIFICATIONS);
+              }
+            },
             icon: const Icon(Icons.notifications_none,
                 color: Color(0xFF475569), size: 20),
           ),
-          const CircleAvatar(
+          CircleAvatar(
             radius: 14,
             backgroundColor: Color(0xFFE2E8F0),
-            child: Icon(Icons.person, size: 16, color: Colors.blue),
+            child: Text(
+              displayInitial,
+              style: const TextStyle(
+                color: Color(0xFF2563EB),
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
           ),
-          const SizedBox(width: 8),
-          const Text(
-            'intern',
-            style: TextStyle(fontWeight: FontWeight.w500),
-          ),
+          if (!isCompact) ...[
+            const SizedBox(width: 8),
+            Text(
+              displayName,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ],
         ],
       ),
     );
@@ -1411,9 +1456,7 @@ class CoursesView extends GetView<CourseController> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        isEdit
-                            ? 'Modifier le cours'
-                            : 'Créer un nouveau cours',
+                        isEdit ? 'Modifier le cours' : 'Créer un nouveau cours',
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF0F172A),
@@ -1462,8 +1505,7 @@ class CoursesView extends GetView<CourseController> {
                               value: selectedLevel,
                               items: const [
                                 DropdownMenuItem(
-                                    value: 'Débutant',
-                                    child: Text('Débutant')),
+                                    value: 'Débutant', child: Text('Débutant')),
                                 DropdownMenuItem(
                                     value: 'Intermédiaire',
                                     child: Text('Intermédiaire')),

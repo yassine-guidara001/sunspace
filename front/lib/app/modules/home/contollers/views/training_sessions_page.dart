@@ -4,6 +4,7 @@ import 'package:flutter_getx_app/app/data/models/training_session_model.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/home_controller.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/training_sessions_controller.dart';
 import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class TrainingSessionsPage extends GetView<TrainingSessionsController> {
   const TrainingSessionsPage({super.key});
@@ -287,22 +288,29 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
           if (isMySession &&
               (session.meetingLink?.trim().isNotEmpty ?? false)) ...[
             const SizedBox(height: 10),
-            const Row(
-              children: [
-                Icon(
-                  Icons.location_on_outlined,
-                  size: 14,
-                  color: Color(0xFF0B6BFF),
+            InkWell(
+              onTap: () => _openMeetingLink(session.meetingLink),
+              borderRadius: BorderRadius.circular(6),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 14,
+                      color: Color(0xFF0B6BFF),
+                    ),
+                    SizedBox(width: 6),
+                    Text(
+                      'Lien de la réunion',
+                      style: TextStyle(
+                        color: Color(0xFF0B6BFF),
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(width: 6),
-                Text(
-                  'Lien de la réunion',
-                  style: TextStyle(
-                    color: Color(0xFF0B6BFF),
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ],
+              ),
             ),
           ],
           const SizedBox(height: 12),
@@ -337,6 +345,29 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
         ],
       ),
     );
+  }
+
+  Future<void> _openMeetingLink(String? rawLink) async {
+    final trimmed = rawLink?.trim() ?? '';
+    if (trimmed.isEmpty) return;
+
+    final normalized = trimmed.contains('://') ? trimmed : 'https://$trimmed';
+    final uri = Uri.tryParse(normalized);
+
+    if (uri == null || uri.host.isEmpty) {
+      Get.snackbar('Lien invalide', 'Le lien de réunion est incorrect.');
+      return;
+    }
+
+    final launched = await launchUrl(
+      uri,
+      mode: LaunchMode.platformDefault,
+      webOnlyWindowName: '_blank',
+    );
+
+    if (!launched) {
+      Get.snackbar('Erreur', 'Impossible d\'ouvrir le lien de réunion.');
+    }
   }
 
   String _formatStudentDate(DateTime? value) {
@@ -375,8 +406,9 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
   String _formatStudentTimeRange(DateTime? start, DateTime? end) {
     String hhmm(DateTime? value) {
       if (value == null) return '--:--';
-      final h = value.hour.toString().padLeft(2, '0');
-      final m = value.minute.toString().padLeft(2, '0');
+      final localValue = value.toLocal();
+      final h = localValue.hour.toString().padLeft(2, '0');
+      final m = localValue.minute.toString().padLeft(2, '0');
       return '$h:$m';
     }
 
@@ -561,11 +593,12 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
 
   String _formatDateTime(DateTime? value) {
     if (value == null) return '-';
-    final d = value.day.toString().padLeft(2, '0');
-    final m = value.month.toString().padLeft(2, '0');
-    final y = value.year.toString();
-    final h = value.hour.toString().padLeft(2, '0');
-    final min = value.minute.toString().padLeft(2, '0');
+    final localValue = value.toLocal();
+    final d = localValue.day.toString().padLeft(2, '0');
+    final m = localValue.month.toString().padLeft(2, '0');
+    final y = localValue.year.toString();
+    final h = localValue.hour.toString().padLeft(2, '0');
+    final min = localValue.minute.toString().padLeft(2, '0');
     return '$d/$m/$y à $h:$min';
   }
 

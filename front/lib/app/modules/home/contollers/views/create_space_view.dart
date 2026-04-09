@@ -8,6 +8,7 @@ class CreateSpaceView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 920;
     final Space? spaceToEdit = Get.arguments as Space?;
     final isEditing = spaceToEdit != null;
 
@@ -36,10 +37,10 @@ class CreateSpaceView extends StatelessWidget {
           Expanded(
             child: Column(
               children: [
-                _buildAppBar(),
+                _buildAppBar(context, isCompact),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(32.0),
+                    padding: EdgeInsets.all(isCompact ? 16.0 : 32.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -70,41 +71,50 @@ class CreateSpaceView extends StatelessWidget {
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(BuildContext context, bool isCompact) {
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: isCompact ? 60 : 70,
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 24),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
       child: Row(
         children: [
-          Container(
-            width: 320,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(8),
+          if (isCompact) ...[
+            IconButton(
+              tooltip: 'Menu',
+              onPressed: () => CustomSidebar.openDrawerMenu(context),
+              icon: const Icon(Icons.menu, color: Colors.black87),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: const Row(
-              children: [
-                Icon(Icons.search, color: Colors.grey, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: "Rechercher...",
-                      hintStyle: TextStyle(color: Colors.grey, ),
-                      border: InputBorder.none,
-                      isDense: true,
+          ] else
+            Container(
+              width: 320,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: const Row(
+                children: [
+                  Icon(Icons.search, color: Colors.grey, size: 20),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: "Rechercher...",
+                        hintStyle: TextStyle(
+                          color: Colors.grey,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           const Spacer(),
           const Icon(Icons.notifications_outlined,
               color: Colors.grey, size: 20),
@@ -115,11 +125,12 @@ class CreateSpaceView extends StatelessWidget {
             child: Icon(Icons.person, color: Colors.blue, size: 18),
           ),
           const SizedBox(width: 8),
-          const Text("intern",
-              style: TextStyle(
+          if (!isCompact)
+            const Text("intern",
+                style: TextStyle(
                   color: Colors.black,
                   fontWeight: FontWeight.w500,
-                  )),
+                )),
           const Icon(Icons.keyboard_arrow_down, color: Colors.black, size: 18),
         ],
       ),
@@ -140,14 +151,15 @@ class CreateSpaceView extends StatelessWidget {
             Text(
               isEditing ? "Modifier l'espace" : "Créer un nouvel espace",
               style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF1E293B)),
+                  fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
             ),
             Text(
               isEditing
                   ? "Modifiez les informations de l'espace sélectionné"
                   : "Ajoutez un nouvel espace de coworking à votre inventaire",
-              style: const TextStyle(color: Colors.grey, ),
+              style: const TextStyle(
+                color: Colors.grey,
+              ),
             ),
           ],
         ),
@@ -274,8 +286,9 @@ class CreateSpaceView extends StatelessWidget {
               elevation: 0,
             ),
             child: Text(isEditing ? "Enregistrer" : "Créer l'espace",
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold, )),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                )),
           ),
         ],
       ),
@@ -290,8 +303,7 @@ class CreateSpaceView extends StatelessWidget {
       children: [
         Text(label,
             style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1E293B))),
+                fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
         const SizedBox(height: 8),
         TextField(
           controller: controller,
@@ -300,7 +312,9 @@ class CreateSpaceView extends StatelessWidget {
           style: const TextStyle(),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: const TextStyle(color: Colors.grey, ),
+            hintStyle: const TextStyle(
+              color: Colors.grey,
+            ),
             filled: true,
             fillColor: Colors.white,
             contentPadding:
@@ -323,8 +337,7 @@ class CreateSpaceView extends StatelessWidget {
       children: [
         Text(label,
             style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1E293B))),
+                fontWeight: FontWeight.w600, color: Color(0xFF1E293B))),
         const SizedBox(height: 8),
         Obx(() => Container(
               padding: const EdgeInsets.symmetric(horizontal: 12),

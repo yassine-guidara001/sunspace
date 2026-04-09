@@ -303,7 +303,8 @@ int? _toIntNullable(dynamic value) {
 DateTime? _toDateTime(dynamic value) {
   if (value == null) return null;
   if (value is DateTime) return value;
-  return DateTime.tryParse(value.toString());
+  final parsed = DateTime.tryParse(value.toString());
+  return parsed?.toLocal();
 }
 
 String? _toNullableString(dynamic value) {

@@ -9,18 +9,20 @@ class UserView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 920;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       body: Row(
         children: [
-          CustomSidebar(),
+          const CustomSidebar(),
           Expanded(
             child: Column(
               children: [
-                _buildAppBar(),
+                _buildAppBar(context, isCompact),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24.0),
+                    padding: EdgeInsets.all(isCompact ? 16.0 : 24.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -41,16 +43,23 @@ class UserView extends StatelessWidget {
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(BuildContext context, bool isCompact) {
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: isCompact ? 60 : 70,
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 24),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
       child: Row(
         children: [
+          if (isCompact) ...[
+            IconButton(
+              tooltip: 'Menu',
+              onPressed: () => CustomSidebar.openDrawerMenu(context),
+              icon: const Icon(Icons.menu, color: Colors.black87),
+            ),
+          ],
           const Spacer(),
           IconButton(
             icon: const Icon(Icons.notifications_outlined,
@@ -64,11 +73,14 @@ class UserView extends StatelessWidget {
             child: Icon(Icons.person, color: Colors.blue, size: 18),
           ),
           const SizedBox(width: 8),
-          const Text("intern",
+          if (!isCompact)
+            const Text(
+              'intern',
               style: TextStyle(
                 color: Colors.black,
                 fontWeight: FontWeight.w500,
-              )),
+              ),
+            ),
           const Icon(Icons.keyboard_arrow_down, color: Colors.black, size: 18),
         ],
       ),

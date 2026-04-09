@@ -148,10 +148,12 @@ class CoursesApi {
   }
 
   Future<void> enrollCurrentStudentToCourse(Course course) async {
-    final userId = _readCurrentUserId();
+    final userId = await _resolveCurrentUserIdForEnrollment();
 
-    if (userId == null) {
-      throw Exception('Utilisateur introuvable ou non connecté');
+    final resolvedCourseId =
+        course.id > 0 ? course.id : int.tryParse(course.documentId.trim());
+    if (resolvedCourseId == null || resolvedCourseId <= 0) {
+      throw Exception('Cours invalide: identifiant introuvable');
     }
 
     final alreadyEnrolled = await _hasExistingEnrollment(
@@ -165,8 +167,8 @@ class CoursesApi {
 
     final primaryBody = <String, dynamic>{
       'data': {
-        'student': userId,
-        'course': course.id,
+        if (userId != null) 'student': userId,
+        'course': resolvedCourseId,
         'enrolled_at': DateTime.now().toUtc().toIso8601String(),
         'mystatus': 'Active',
       }
@@ -189,6 +191,41 @@ class CoursesApi {
     }
 
     throw _buildHttpException('ENROLL_COURSE', primaryResponse);
+  }
+
+  Future<int?> _resolveCurrentUserIdForEnrollment() async {
+    final fromStorage = _readCurrentUserId();
+    if (fromStorage != null && fromStorage > 0) {
+      return fromStorage;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/users/me'),
+        headers: _headersJson(),
+      );
+      if (!_isSuccess(response.statusCode)) {
+        return null;
+      }
+
+      final meData = _unwrapDataMap(_decodeMap(response.body));
+      final userId = _toIntNullable(
+        meData['id'] ??
+            (meData['user'] is Map ? (meData['user'] as Map)['id'] : null),
+      );
+
+      if (userId != null && userId > 0) {
+        final cached = _readCurrentUserData() ?? <String, dynamic>{};
+        final updated = Map<String, dynamic>.from(cached)..['id'] = userId;
+        await _storageService.saveUserData(updated);
+        await _storageService.write('user_data', updated);
+        await _storageService.write('user', updated);
+      }
+
+      return userId;
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<Course> getCourseById(int id) async {

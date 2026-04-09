@@ -20,6 +20,8 @@ class _StudentSpaceReservationViewState
   String _plan = 'monthly';
   late DateTime _selectedDate;
   late TimeOfDay _selectedTime;
+  late DateTime _selectedEndDate;
+  late TimeOfDay _selectedEndTime;
 
   @override
   void initState() {
@@ -27,6 +29,8 @@ class _StudentSpaceReservationViewState
     final now = DateTime.now();
     _selectedDate = DateTime(now.year, now.month, now.day);
     _selectedTime = TimeOfDay(hour: now.hour, minute: 0);
+    _selectedEndDate = _selectedDate.add(const Duration(days: 30));
+    _selectedEndTime = _selectedTime;
   }
 
   @override
@@ -241,7 +245,14 @@ class _StudentSpaceReservationViewState
                   subtitle: 'Acces illimite pendant 30 jours',
                   price: _monthlyPrice(),
                   unit: '/ mois',
-                  onTap: () => setState(() => _plan = 'monthly'),
+                  onTap: () {
+                    setState(() {
+                      _plan = 'monthly';
+                      _selectedEndDate =
+                          _selectedDate.add(const Duration(days: 30));
+                      _selectedEndTime = _selectedTime;
+                    });
+                  },
                 ),
                 const SizedBox(height: 12),
                 _planTile(
@@ -251,30 +262,25 @@ class _StudentSpaceReservationViewState
                   subtitle: "Payer a l'heure selon l'usage",
                   price: _hourlyPrice(),
                   unit: '/ heure',
-                  onTap: () => setState(() => _plan = 'hourly'),
+                  onTap: () {
+                    setState(() {
+                      _plan = 'hourly';
+                      final start = _startDateTime();
+                      final nextHour = start.add(const Duration(hours: 1));
+                      _selectedEndDate = DateTime(
+                        nextHour.year,
+                        nextHour.month,
+                        nextHour.day,
+                      );
+                      _selectedEndTime = TimeOfDay(
+                        hour: nextHour.hour,
+                        minute: nextHour.minute,
+                      );
+                    });
+                  },
                 ),
                 const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _inputField(
-                        label: 'DATE DE DEBUT',
-                        value: _formatDate(_selectedDate),
-                        icon: Icons.calendar_today_outlined,
-                        onTap: _pickDate,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _inputField(
-                        label: 'HEURE DE DEBUT',
-                        value: _selectedTime.format(context),
-                        icon: Icons.access_time_outlined,
-                        onTap: _pickTime,
-                      ),
-                    ),
-                  ],
-                ),
+                _buildDateTimeSection(),
               ],
             ),
           ),
@@ -411,6 +417,7 @@ class _StudentSpaceReservationViewState
     required String value,
     required IconData icon,
     required VoidCallback onTap,
+    bool highlighted = false,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -428,12 +435,16 @@ class _StudentSpaceReservationViewState
           onTap: onTap,
           borderRadius: BorderRadius.circular(10),
           child: Container(
-            height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 10),
+            height: 46,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+              color: highlighted ? const Color(0xFFF8FBFF) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: highlighted
+                    ? const Color(0xFFBFD9FF)
+                    : const Color(0xFFE2E8F0),
+              ),
             ),
             child: Row(
               children: [
@@ -446,12 +457,78 @@ class _StudentSpaceReservationViewState
                     ),
                   ),
                 ),
-                Icon(icon, size: 16, color: const Color(0xFF475569)),
+                Icon(
+                  icon,
+                  size: 17,
+                  color: highlighted
+                      ? const Color(0xFF1664FF)
+                      : const Color(0xFF475569),
+                ),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildDateTimeSection() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FBFF),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD9E8FF)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _inputField(
+                  label: 'DATE DE DEBUT',
+                  value: _formatDate(_selectedDate),
+                  icon: Icons.calendar_today_outlined,
+                  onTap: () => _pickDate(isStart: true),
+                  highlighted: true,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _inputField(
+                  label: 'HEURE DE DEBUT',
+                  value: _selectedTime.format(context),
+                  icon: Icons.access_time_outlined,
+                  onTap: () => _pickTime(isStart: true),
+                  highlighted: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _inputField(
+                  label: 'DATE DE FIN',
+                  value: _formatDate(_selectedEndDate),
+                  icon: Icons.event_outlined,
+                  onTap: () => _pickDate(isStart: false),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _inputField(
+                  label: 'HEURE DE FIN',
+                  value: _selectedEndTime.format(context),
+                  icon: Icons.schedule_outlined,
+                  onTap: () => _pickTime(isStart: false),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -579,41 +656,131 @@ class _StudentSpaceReservationViewState
     );
   }
 
-  Future<void> _pickDate() async {
+  Future<void> _pickDate({required bool isStart}) async {
+    final now = DateTime.now();
+    final initial = isStart ? _selectedDate : _selectedEndDate;
+    final first = isStart
+        ? DateTime(now.year, now.month, now.day)
+        : DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+
     final selected = await showDatePicker(
       context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      initialDate: initial,
+      firstDate: first,
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF1664FF),
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF0F172A),
+            ),
+            dialogTheme: DialogThemeData(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (selected == null) return;
 
     setState(() {
-      _selectedDate = selected;
+      if (isStart) {
+        _selectedDate = selected;
+      } else {
+        _selectedEndDate = selected;
+      }
+      _ensureValidDateRange();
     });
   }
 
-  Future<void> _pickTime() async {
+  Future<void> _pickTime({required bool isStart}) async {
     final selected = await showTimePicker(
       context: context,
-      initialTime: _selectedTime,
+      initialTime: isStart ? _selectedTime : _selectedEndTime,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF1664FF),
+              onPrimary: Colors.white,
+              onSurface: Color(0xFF0F172A),
+            ),
+            timePickerTheme: const TimePickerThemeData(
+              backgroundColor: Colors.white,
+              hourMinuteColor: Color(0xFFF1F5F9),
+              dayPeriodColor: Color(0xFFF1F5F9),
+              dialBackgroundColor: Color(0xFFF8FAFC),
+              entryModeIconColor: Color(0xFF64748B),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (selected == null) return;
 
     setState(() {
-      _selectedTime = selected;
+      if (isStart) {
+        _selectedTime = selected;
+      } else {
+        _selectedEndTime = selected;
+      }
+      _ensureValidDateRange();
     });
+  }
+
+  void _ensureValidDateRange() {
+    final start = _startDateTime();
+    final end = _endDateTime();
+
+    if (!end.isAfter(start)) {
+      final adjusted = start.add(_plan == 'monthly'
+          ? const Duration(days: 30)
+          : const Duration(hours: 1));
+      _selectedEndDate = DateTime(adjusted.year, adjusted.month, adjusted.day);
+      _selectedEndTime =
+          TimeOfDay(hour: adjusted.hour, minute: adjusted.minute);
+    }
+  }
+
+  DateTime _startDateTime() {
+    return DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+  }
+
+  DateTime _endDateTime() {
+    return DateTime(
+      _selectedEndDate.year,
+      _selectedEndDate.month,
+      _selectedEndDate.day,
+      _selectedEndTime.hour,
+      _selectedEndTime.minute,
+    );
   }
 
   void _continueToPayment() {
+    _ensureValidDateRange();
+
     Get.to(
       () => StudentSpacePaymentView(
         space: widget.space,
         plan: _plan,
         startDate: _selectedDate,
         startTime: _selectedTime,
+        endDate: _selectedEndDate,
+        endTime: _selectedEndTime,
       ),
     );
   }

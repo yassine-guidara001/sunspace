@@ -102,10 +102,10 @@ class _StudentFloorPlanPageState extends State<StudentFloorPlanPage> {
       isCoworking: s['is_coworking'] == true || s['isCoworkingSpace'] == true,
       allowGuestReservations: s['allow_guest_reservations'] == true ||
           s['allowLimitedReservations'] == true,
-      hourlyRate: (s['hourly_rate'] ?? s['hourlyRate'] ?? 0).toDouble(),
-      dailyRate: (s['daily_rate'] ?? s['dailyRate'] ?? 0).toDouble(),
-      monthlyRate: (s['monthly_rate'] ?? s['monthlyRate'] ?? 0).toDouble(),
-      overtimeRate: (s['overtimeRate'] ?? 0).toDouble(),
+      hourlyRate: _resolveHourlyRate(s),
+      dailyRate: _toDoubleValue(s['daily_rate'] ?? s['dailyRate']),
+      monthlyRate: _resolveMonthlyRate(s),
+      overtimeRate: _toDoubleValue(s['overtimeRate']),
       currency: s['currency']?.toString() ?? 'TND',
       description: _extractDescription(s['description']),
       available24h: s['available24h'] == true,
@@ -113,13 +113,55 @@ class _StudentFloorPlanPageState extends State<StudentFloorPlanPage> {
           s['isCoworkingSpace'] == true || s['is_coworking'] == true,
       allowLimitedReservations: s['allowLimitedReservations'] == true ||
           s['allow_guest_reservations'] == true,
-      surface: (s['surface'] ?? 0).toDouble(),
-      width: (s['width'] ?? 0).toDouble(),
-      height: (s['height'] ?? 0).toDouble(),
+      surface: _toDoubleValue(s['surface']),
+      width: _toDoubleValue(s['width']),
+      height: _toDoubleValue(s['height']),
       features: s['features']?.toString(),
       imageUrl: s['imageUrl']?.toString(),
       createdAt: DateTime.tryParse(s['createdAt']?.toString() ?? ''),
       updatedAt: DateTime.tryParse(s['updatedAt']?.toString() ?? ''),
+    );
+  }
+
+  double _toDoubleValue(dynamic value, {double fallback = 0}) {
+    if (value == null) return fallback;
+    if (value is num) return value.toDouble();
+    return double.tryParse(value.toString()) ?? fallback;
+  }
+
+  double _resolveHourlyRate(Map<String, dynamic> s) {
+    final pricing = s['pricing'];
+    final rates = s['rates'];
+
+    return _toDoubleValue(
+      s['hourlyRate'] ??
+          s['hourly_rate'] ??
+          s['pricePerHour'] ??
+          s['price_per_hour'] ??
+          s['pricingHourly'] ??
+          s['pricing_hourly'] ??
+          (pricing is Map
+              ? pricing['hourlyRate'] ?? pricing['hourly_rate']
+              : null) ??
+          (rates is Map ? rates['hourlyRate'] ?? rates['hourly_rate'] : null),
+    );
+  }
+
+  double _resolveMonthlyRate(Map<String, dynamic> s) {
+    final pricing = s['pricing'];
+    final rates = s['rates'];
+
+    return _toDoubleValue(
+      s['monthlyRate'] ??
+          s['monthly_rate'] ??
+          s['pricePerMonth'] ??
+          s['price_per_month'] ??
+          s['pricingMonthly'] ??
+          s['pricing_monthly'] ??
+          (pricing is Map
+              ? pricing['monthlyRate'] ?? pricing['monthly_rate']
+              : null) ??
+          (rates is Map ? rates['monthlyRate'] ?? rates['monthly_rate'] : null),
     );
   }
 
@@ -353,9 +395,9 @@ class _StudentFloorPlanPageState extends State<StudentFloorPlanPage> {
     final location = s['location']?.toString() ?? '';
     final floor = s['floor']?.toString() ?? '';
     final capacity = s['capacity']?.toString() ?? '-';
-    final monthly = (s['monthly_rate'] ?? 0).toDouble();
-    final hourly = (s['hourly_rate'] ?? 0).toDouble();
-    final currency = s['currency']?.toString() ?? 'DT';
+    final monthly = _resolveMonthlyRate(s);
+    final hourly = _resolveHourlyRate(s);
+    final currency = _currencyCode(s['currency']?.toString() ?? 'TND');
 
     // Label de localisation pour le header de la carte
     final locLabel =
@@ -378,7 +420,7 @@ class _StudentFloorPlanPageState extends State<StudentFloorPlanPage> {
         children: [
           // ── Header gris avec badges ──────────────────────────────
           Container(
-            height: 130,
+            height: 136,
             decoration: BoxDecoration(
               color: const Color(0xFFF1F5FB),
               borderRadius:
@@ -435,7 +477,7 @@ class _StudentFloorPlanPageState extends State<StudentFloorPlanPage> {
                   ],
                   const SizedBox(height: 12),
 
-                  // Stats : capacité + par mois
+                  // Stats : capacité + abonnement mensuel
                   Row(children: [
                     Expanded(
                       child: Container(
@@ -494,9 +536,7 @@ class _StudentFloorPlanPageState extends State<StudentFloorPlanPage> {
                             ]),
                             const SizedBox(height: 4),
                             Text(
-                              monthly > 0
-                                  ? '${monthly.toStringAsFixed(0)} $currency'
-                                  : '- $currency',
+                              _formatMoney(monthly, currency),
                               style: const TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w700,
@@ -519,7 +559,7 @@ class _StudentFloorPlanPageState extends State<StudentFloorPlanPage> {
                         text: TextSpan(
                           children: [
                             TextSpan(
-                              text: '${hourly.toStringAsFixed(0)} $currency',
+                              text: _formatMoney(hourly, currency),
                               style: const TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w800,
@@ -570,5 +610,16 @@ class _StudentFloorPlanPageState extends State<StudentFloorPlanPage> {
           style: TextStyle(
               fontSize: 10, fontWeight: FontWeight.w700, color: textColor)),
     );
+  }
+
+  String _currencyCode(String currency) {
+    final normalized = currency.trim().toUpperCase();
+    if (normalized == 'TND') return 'DT';
+    return normalized.isEmpty ? 'DT' : normalized;
+  }
+
+  String _formatMoney(double value, String currency) {
+    if (value <= 0) return '-- $currency';
+    return '${value.toStringAsFixed(0)} $currency';
   }
 }

@@ -22,7 +22,7 @@ class NotificationsPage extends GetView<NotificationsController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: const Color(0xFFF3F6FB),
       appBar: _buildAppBar(),
       body: _buildBody(),
     );
@@ -30,8 +30,11 @@ class NotificationsPage extends GetView<NotificationsController> {
 
   PreferredSizeWidget _buildAppBar() {
     return AppBar(
+      toolbarHeight: 78,
       backgroundColor: Colors.white,
+      surfaceTintColor: Colors.white,
       elevation: 0,
+      titleSpacing: 20,
       centerTitle: false,
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -86,28 +89,255 @@ class NotificationsPage extends GetView<NotificationsController> {
 
   Widget _buildBody() {
     return Obx(() {
-      final all = controller.filteredNotifications;
-      final unread = all.where((n) => n['read'] != true).toList();
+      final notifications = controller.filteredNotifications;
+      final unread = notifications.where((n) => n['read'] != true).length;
+      final total = notifications.length;
+      final read = total - unread;
 
-      // Filtre local (Toutes / Non lues)
       return Column(
         children: [
-          // Filtres
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: _FilterChips(
-              onFilterChanged: (filter) {
-                controller
-                    .toggleFilter(filter); // à implémenter dans le controller
-              },
-            ),
+            padding: const EdgeInsets.fromLTRB(18, 12, 18, 10),
+            child: _buildHero(total: total, unread: unread, read: read),
           ),
-          Expanded(
-            child: _buildNotificationList(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 0, 18, 10),
+            child: _buildFilters(),
           ),
+          Expanded(child: _buildNotificationList()),
         ],
       );
     });
+  }
+
+  Widget _buildHero({
+    required int total,
+    required int unread,
+    required int read,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFF), Color(0xFFF6F7FF)],
+        ),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withOpacity(0.04),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 860;
+        final stats = [
+          _NotificationStat(
+            label: 'Total',
+            value: total.toString(),
+            icon: Icons.notifications_none_rounded,
+            accent: _accent,
+            tint: const Color(0xFFDCE6FF),
+          ),
+          _NotificationStat(
+            label: 'Non lues',
+            value: unread.toString(),
+            icon: Icons.mark_email_unread_outlined,
+            accent: _warning,
+            tint: const Color(0xFFFEF3C7),
+          ),
+          _NotificationStat(
+            label: 'Lues',
+            value: read.toString(),
+            icon: Icons.done_all_rounded,
+            accent: _success,
+            tint: const Color(0xFFDCFCE7),
+          ),
+        ];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F4FF),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: const Color(0xFFDCE6FF)),
+                        ),
+                        child: const Text(
+                          'Centre de notifications',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: _accent,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Notifications',
+                        style: GoogleFonts.inter(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          color: _textPrimary,
+                          height: 1.05,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Suivez les réservations, les mises à jour et les messages importants dans un flux plus lisible et plus rapide à parcourir.',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          height: 1.5,
+                          color: _textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!isCompact) ...[
+                  const SizedBox(width: 16),
+                  Container(
+                    width: 150,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.bolt_rounded, color: _accent, size: 28),
+                        SizedBox(height: 8),
+                        Text(
+                          'Flux en direct',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: _textPrimary,
+                          ),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          'Mises à jour et réservations récentes',
+                          style: TextStyle(
+                              fontSize: 10.5,
+                              color: _textSecondary,
+                              height: 1.3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: stats
+                  .map((stat) => SizedBox(
+                        width: isCompact
+                            ? (constraints.maxWidth - 12) / 2
+                            : (constraints.maxWidth - 24) / 3,
+                        child: stat,
+                      ))
+                  .toList(),
+            ),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget _buildFilters() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withOpacity(0.03),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: LayoutBuilder(builder: (context, constraints) {
+        final compact = constraints.maxWidth < 640;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0F4FF),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child:
+                      const Icon(Icons.tune_rounded, color: _accent, size: 17),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Filtrer le flux',
+                    style: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: _textPrimary,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${controller.filteredNotifications.length} éléments',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _FilterChips(
+              controller: controller,
+              onFilterChanged: controller.toggleFilter,
+            ),
+            if (!compact) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Les notifications non lues sont mises en avant avec un fond plus clair.',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: _textSecondary,
+                ),
+              ),
+            ],
+          ],
+        );
+      }),
+    );
   }
 
   Widget _buildNotificationList() {
@@ -125,7 +355,7 @@ class NotificationsPage extends GetView<NotificationsController> {
       onRefresh: controller.refresh,
       color: _accent,
       child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        padding: const EdgeInsets.fromLTRB(18, 2, 18, 18),
         itemCount: notifications.length,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
@@ -145,30 +375,107 @@ class NotificationsPage extends GetView<NotificationsController> {
   }
 }
 
+class _NotificationStat extends StatelessWidget {
+  const _NotificationStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.accent,
+    required this.tint,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color accent;
+  final Color tint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: tint),
+        boxShadow: [
+          BoxShadow(
+            color: accent.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: tint.withOpacity(0.55),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: accent, size: 21),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: NotificationsPage._textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  value,
+                  style: GoogleFonts.inter(
+                    fontSize: 23,
+                    fontWeight: FontWeight.w800,
+                    color: NotificationsPage._textPrimary,
+                    height: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ============================================================================
 //  FILTRES
 // ============================================================================
 class _FilterChips extends StatelessWidget {
+  final NotificationsController controller;
   final Function(String) onFilterChanged;
 
-  const _FilterChips({required this.onFilterChanged});
+  const _FilterChips({required this.controller, required this.onFilterChanged});
 
   @override
   Widget build(BuildContext context) {
     return Obx(() {
-      final currentFilter =
-          Get.find<NotificationsController>().currentFilter.value;
-      return Row(
+      final currentFilter = controller.currentFilter.value;
+      return Wrap(
+        spacing: 10,
+        runSpacing: 10,
         children: [
           _FilterChip(
             label: 'Toutes',
+            icon: Icons.all_inclusive_rounded,
             value: 'all',
             selected: currentFilter == 'all',
             onSelected: onFilterChanged,
           ),
-          const SizedBox(width: 10),
           _FilterChip(
             label: 'Non lues',
+            icon: Icons.mark_email_unread_outlined,
             value: 'unread',
             selected: currentFilter == 'unread',
             onSelected: onFilterChanged,
@@ -181,12 +488,14 @@ class _FilterChips extends StatelessWidget {
 
 class _FilterChip extends StatelessWidget {
   final String label;
+  final IconData icon;
   final String value;
   final bool selected;
   final Function(String) onSelected;
 
   const _FilterChip({
     required this.label,
+    required this.icon,
     required this.value,
     required this.selected,
     required this.onSelected,
@@ -197,8 +506,9 @@ class _FilterChip extends StatelessWidget {
     return GestureDetector(
       onTap: () => onSelected(value),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
         decoration: BoxDecoration(
           color: selected ? NotificationsPage._accent : Colors.white,
           borderRadius: BorderRadius.circular(40),
@@ -216,13 +526,25 @@ class _FilterChip extends StatelessWidget {
                 ]
               : null,
         ),
-        child: Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: selected ? Colors.white : NotificationsPage._textSecondary,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              size: 16,
+              color: selected ? Colors.white : NotificationsPage._textSecondary,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.inter(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color:
+                    selected ? Colors.white : NotificationsPage._textSecondary,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -296,7 +618,7 @@ class _NotificationCardImprovedState extends State<_NotificationCardImproved>
             onTap: widget.onTap,
             borderRadius: BorderRadius.circular(18),
             child: Container(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: isRead
                     ? NotificationsPage._card
@@ -325,10 +647,9 @@ class _NotificationCardImprovedState extends State<_NotificationCardImproved>
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Icône animée
                   Container(
-                    width: 52,
-                    height: 52,
+                    width: 56,
+                    height: 56,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -338,16 +659,18 @@ class _NotificationCardImprovedState extends State<_NotificationCardImproved>
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: color.withOpacity(0.12)),
                     ),
                     child: Icon(iconData, color: color, size: 28),
                   ),
-                  const SizedBox(width: 16),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(
                               child: Text(
@@ -356,14 +679,15 @@ class _NotificationCardImprovedState extends State<_NotificationCardImproved>
                                   fontSize: 15,
                                   fontWeight: FontWeight.w700,
                                   color: NotificationsPage._textPrimary,
-                                  letterSpacing: -0.3,
+                                  letterSpacing: -0.2,
                                 ),
                               ),
                             ),
                             if (!isRead)
                               Container(
-                                width: 8,
-                                height: 8,
+                                width: 10,
+                                height: 10,
+                                margin: const EdgeInsets.only(top: 4),
                                 decoration: BoxDecoration(
                                   color: color,
                                   shape: BoxShape.circle,
@@ -382,26 +706,20 @@ class _NotificationCardImprovedState extends State<_NotificationCardImproved>
                           widget.notification['body'] ?? '',
                           style: GoogleFonts.inter(
                             fontSize: 13,
-                            height: 1.45,
+                            height: 1.5,
                             color: NotificationsPage._textSecondary,
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        Row(
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            Icon(Icons.access_time_rounded,
-                                size: 12,
-                                color: NotificationsPage._textSecondary),
-                            const SizedBox(width: 4),
-                            Text(
-                              timeAgo,
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                                color: NotificationsPage._textSecondary,
-                              ),
+                            _buildMetaChip(
+                              icon: Icons.access_time_rounded,
+                              label: timeAgo,
                             ),
-                            const SizedBox(width: 12),
                             _buildTypeBadge(type, color),
                           ],
                         ),
@@ -413,6 +731,32 @@ class _NotificationCardImprovedState extends State<_NotificationCardImproved>
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildMetaChip({required IconData icon, required String label}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: NotificationsPage._textSecondary),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: NotificationsPage._textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -502,15 +846,20 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 100,
-            height: 100,
+            width: 112,
+            height: 112,
             decoration: BoxDecoration(
-              color: NotificationsPage._accent.withOpacity(0.08),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFF0F4FF), Color(0xFFF8FAFF)],
+              ),
               shape: BoxShape.circle,
+              border: Border.all(color: const Color(0xFFDCE6FF)),
             ),
             child: Icon(
               Icons.notifications_off_rounded,
-              size: 48,
+              size: 52,
               color: NotificationsPage._accent,
             ),
           ),
@@ -518,18 +867,19 @@ class _EmptyState extends StatelessWidget {
           Text(
             'Aucune notification',
             style: GoogleFonts.inter(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+              fontSize: 21,
+              fontWeight: FontWeight.w700,
               color: NotificationsPage._textPrimary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Vous êtes à jour !',
+            'Vous êtes à jour. Les nouvelles alertes apparaîtront ici.',
             style: GoogleFonts.inter(
               fontSize: 14,
               color: NotificationsPage._textSecondary,
             ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -546,7 +896,7 @@ class _ShimmerLoadingList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      padding: const EdgeInsets.fromLTRB(18, 10, 18, 18),
       itemCount: 5,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (_, __) => const _ShimmerCard(),
@@ -560,14 +910,16 @@ class _ShimmerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -575,11 +927,11 @@ class _ShimmerCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
               color: NotificationsPage._border,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
             ),
           ),
           const SizedBox(width: 16),
@@ -594,7 +946,7 @@ class _ShimmerCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  width: 200,
+                  width: 220,
                   height: 12,
                   color: NotificationsPage._border,
                 ),
@@ -602,12 +954,12 @@ class _ShimmerCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                        width: 50,
+                        width: 56,
                         height: 10,
                         color: NotificationsPage._border),
                     const SizedBox(width: 12),
                     Container(
-                        width: 70,
+                        width: 72,
                         height: 10,
                         color: NotificationsPage._border),
                   ],

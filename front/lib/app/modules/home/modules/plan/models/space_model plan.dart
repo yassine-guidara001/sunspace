@@ -219,11 +219,10 @@ class ReservationModel {
 
   Map<String, dynamic> toJson() {
     final dateStr = date.toIso8601String().split('T').first;
-    final startDt = fullDay
-        ? '${dateStr}T09:00:00.000Z'
-        : '${dateStr}T${startTime}:00.000Z';
+    final startDt =
+        fullDay ? '${dateStr}T09:00:00.000' : '${dateStr}T${startTime}:00.000';
     final endDt =
-        fullDay ? '${dateStr}T18:00:00.000Z' : '${dateStr}T${endTime}:00.000Z';
+        fullDay ? '${dateStr}T18:00:00.000' : '${dateStr}T${endTime}:00.000';
     return {
       'data': {
         'space': spaceId,

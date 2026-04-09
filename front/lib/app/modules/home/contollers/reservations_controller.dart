@@ -5,10 +5,10 @@ class ReservationsController extends GetxController {
   final ReservationsService _service = ReservationsService();
 
   final allReservations = <ReservationModel>[].obs;
-  final reservations    = <ReservationModel>[].obs;
-  final isLoading       = false.obs;
-  final selectedStatus  = 'Tous'.obs;
-  final searchQuery     = ''.obs;
+  final reservations = <ReservationModel>[].obs;
+  final isLoading = false.obs;
+  final selectedStatus = 'Tous'.obs;
+  final searchQuery = ''.obs;
 
   @override
   void onInit() {
@@ -19,6 +19,7 @@ class ReservationsController extends GetxController {
   Future<void> loadReservations() async {
     try {
       isLoading.value = true;
+      update();
       final result = await _service.getReservations();
       final List<dynamic> data = result['data'] ?? [];
       allReservations.assignAll(
@@ -29,6 +30,7 @@ class ReservationsController extends GetxController {
           snackPosition: SnackPosition.BOTTOM);
     } finally {
       isLoading.value = false;
+      update();
     }
   }
 
@@ -59,18 +61,22 @@ class ReservationsController extends GetxController {
   void changeStatusFilter(String status) {
     selectedStatus.value = status;
     _applyFilters();
+    update();
   }
 
   void setSearchQuery(String value) {
     searchQuery.value = value;
     _applyFilters();
+    update();
   }
 
-  int get totalCount     => allReservations.length;
+  int get totalCount => allReservations.length;
   int get confirmedCount => allReservations
-      .where((r) => _normalizeStatus(r.status) == 'confirmé').length;
-  int get pendingCount   => allReservations
-      .where((r) => _normalizeStatus(r.status) == 'en attente').length;
+      .where((r) => _normalizeStatus(r.status) == 'confirmé')
+      .length;
+  int get pendingCount => allReservations
+      .where((r) => _normalizeStatus(r.status) == 'en attente')
+      .length;
 
   List<ReservationModel> get upcomingReservations {
     final now = DateTime.now();
@@ -80,7 +86,7 @@ class ReservationsController extends GetxController {
 
   void _applyFilters() {
     final selected = _normalizeStatus(selectedStatus.value);
-    final query    = searchQuery.value.trim().toLowerCase();
+    final query = searchQuery.value.trim().toLowerCase();
 
     reservations.assignAll(allReservations.where((r) {
       final statusMatch = selectedStatus.value == 'Tous' ||
@@ -90,13 +96,14 @@ class ReservationsController extends GetxController {
           r.userName.toLowerCase().contains(query);
       return statusMatch && searchMatch;
     }).toList());
+    update();
   }
 
   String _normalizeStatus(String value) {
     final lower = value.toLowerCase().trim().replaceAll('_', ' ');
     if (lower == 'en attente' || lower == 'en_attente') return 'en attente';
     if (lower.contains('confirm')) return 'confirmé';
-    if (lower.contains('annul'))   return 'annulé';
+    if (lower.contains('annul')) return 'annulé';
     return lower;
   }
 }
@@ -123,7 +130,7 @@ class ReservationModel {
     required this.userName,
     required this.userEmail,
     this.userPhone = '',
-    this.userRole  = '',
+    this.userRole = '',
     this.userType,
     required this.dateTime,
     required this.amount,
@@ -134,7 +141,7 @@ class ReservationModel {
   factory ReservationModel.fromJson(Map<String, dynamic> json) {
     final attrs = _extractAttributes(json);
     final space = _extractRelationMap(attrs['space']);
-    final user  = _extractRelationMap(attrs['user']);
+    final user = _extractRelationMap(attrs['user']);
 
     // ── Rôle utilisateur ──────────────────────────────────────────────────
     // Strapi v5 : role peut être dans user.role ou user.userType
@@ -147,13 +154,13 @@ class ReservationModel {
     ]);
     // Classifie : si pas d'user Strapi → Visiteur
     final isGuest = user == null || (user['id'] == null);
-    final role = roleName.isNotEmpty
-        ? roleName
-        : (isGuest ? 'Visiteur' : 'Client');
+    final role =
+        roleName.isNotEmpty ? roleName : (isGuest ? 'Visiteur' : 'Client');
 
     return ReservationModel(
       id: _toInt(json['id']),
-      documentId: json['documentId']?.toString() ?? json['id']?.toString() ?? '',
+      documentId:
+          json['documentId']?.toString() ?? json['id']?.toString() ?? '',
       spaceName: _firstNonEmptyString([
         space?['name'],
         attrs['space_name'],

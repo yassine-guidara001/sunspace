@@ -4,8 +4,8 @@ import 'package:flutter_getx_app/app/modules/home/contollers/home_controller.dar
 import 'package:get/get.dart';
 
 class CourseController extends GetxController {
-  static const int _studentMyCoursesMenuIndex = 10;
-  static const int _studentCatalogMenuIndex = 12;
+  static const int _studentMyCoursesMenuIndex = 13;
+  static const int _studentCatalogMenuIndex = 15;
 
   final CoursesApi _api = CoursesApi();
 

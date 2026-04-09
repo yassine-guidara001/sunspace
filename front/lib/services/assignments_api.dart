@@ -463,13 +463,18 @@ class AssignmentsApi {
   Map<String, dynamic> _sanitizePayload(Map<String, dynamic> source) {
     final normalizedDescription =
         _normalizeDescription(source['description'] ?? source['instructions']);
-    final hasAttachmentField =
-        source.containsKey('attachment') || source.containsKey('attachmentId');
+    final hasAttachmentField = source.containsKey('attachment') ||
+        source.containsKey('attachmentId') ||
+        source.containsKey('attachmentUrl') ||
+        source.containsKey('attachmentName');
     final resolvedCourse = _resolveCourseRelation(source);
 
     final attachmentValue = source.containsKey('attachmentId')
         ? source['attachmentId']
         : source['attachment'];
+    final attachmentUrl = source['attachment_url'] ?? source['attachmentUrl'];
+    final attachmentName =
+        source['attachment_name'] ?? source['attachmentName'];
 
     final payload = <String, dynamic>{
       'title': source['title'],
@@ -485,11 +490,17 @@ class AssignmentsApi {
           source['allowLateSubmission'] ??
           false,
       'attachment': attachmentValue,
+      'attachment_url': attachmentUrl,
+      'attachment_name': attachmentName,
     };
 
     payload.removeWhere(
       (key, value) =>
-          value == null && !(hasAttachmentField && key == 'attachment'),
+          value == null &&
+          !(hasAttachmentField &&
+              (key == 'attachment' ||
+                  key == 'attachment_url' ||
+                  key == 'attachment_name')),
     );
     return payload;
   }
@@ -613,6 +624,19 @@ class AssignmentsApi {
   }
 
   List<Map<String, dynamic>> _parseSubmissionsList(String body) {
+    final decoded = _decodeMap(body);
+    final data = decoded['data'];
+    if (data is! List) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    return data
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _parseRawDataList(String body) {
     final decoded = _decodeMap(body);
     final data = decoded['data'];
     if (data is! List) {
@@ -843,25 +867,71 @@ class AssignmentsApi {
     ];
 
     for (final uri in candidateUris) {
-      debugPrint('[AssignmentsAPI] GET $uri');
+      final firstPageUri = _withPagination(uri, page: 1, pageSize: 100);
+      debugPrint('[AssignmentsAPI] GET $firstPageUri');
 
       try {
-        final response = await http
-            .get(uri, headers: _authService.authHeaders)
+        http.Response response = await http
+            .get(firstPageUri, headers: _authService.authHeaders)
             .timeout(_requestTimeout);
 
         _logResponse(response);
 
-        if (response.statusCode >= 200 && response.statusCode < 300) {
-          final decoded = _decodeMap(response.body);
-          final data = decoded['data'];
+        if ((response.statusCode == 400 ||
+                response.statusCode == 404 ||
+                response.statusCode == 422) &&
+            firstPageUri.toString() != uri.toString()) {
+          debugPrint('[AssignmentsAPI] GET $uri');
+          response = await http
+              .get(uri, headers: _authService.authHeaders)
+              .timeout(_requestTimeout);
+          _logResponse(response);
+        }
 
-          if (data is List) {
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          final enrollments = <Map<String, dynamic>>[];
+          enrollments.addAll(_parseRawDataList(response.body));
+
+          final pageInfo = _extractPaginationInfo(response.body);
+          if (pageInfo != null && pageInfo.pageCount > pageInfo.page) {
+            final resolvedPageSize = pageInfo.pageSize ?? 100;
+
+            for (var page = pageInfo.page + 1;
+                page <= pageInfo.pageCount;
+                page++) {
+              final pageUri = _withPagination(
+                uri,
+                page: page,
+                pageSize: resolvedPageSize,
+              );
+
+              debugPrint('[AssignmentsAPI] GET $pageUri');
+              final pageResponse = await http
+                  .get(pageUri, headers: _authService.authHeaders)
+                  .timeout(_requestTimeout);
+
+              _logResponse(pageResponse);
+
+              if (pageResponse.statusCode >= 200 &&
+                  pageResponse.statusCode < 300) {
+                enrollments.addAll(_parseRawDataList(pageResponse.body));
+                continue;
+              }
+
+              if (pageResponse.statusCode == 400 ||
+                  pageResponse.statusCode == 404 ||
+                  pageResponse.statusCode == 422) {
+                break;
+              }
+
+              _throwIfError(pageResponse);
+            }
+          }
+
+          if (enrollments.isNotEmpty) {
             final courseIds = <int>[];
 
-            for (final enrollment in data) {
-              if (enrollment is! Map) continue;
-
+            for (final enrollment in enrollments) {
               // Compatible Node + structures legacy de type Strapi.
               final node = _extractContentNode(
                 Map<String, dynamic>.from(enrollment),

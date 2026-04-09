@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_getx_app/app/core/service/storage_service.dart';
 import 'package:get/get.dart';
@@ -5,10 +7,30 @@ import 'package:flutter_getx_app/app/modules/home/contollers/home_controller.dar
 import 'package:flutter_getx_app/app/routes/app_routes.dart';
 
 class CustomSidebar extends StatelessWidget {
-  const CustomSidebar({super.key});
+  const CustomSidebar({super.key, this.drawerMode = false});
 
   static const double _expandedWidth = 280;
   static const double _collapsedWidth = 74;
+  static const double _mobileBreakpoint = 920;
+
+  final bool drawerMode;
+
+  static Future<void> openDrawerMenu(BuildContext context) async {
+    final height = MediaQuery.of(context).size.height;
+
+    await Get.dialog(
+      Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        child: SizedBox(
+          width: math.min(320, MediaQuery.of(context).size.width - 32),
+          height: height * 0.9,
+          child: const CustomSidebar(drawerMode: true),
+        ),
+      ),
+    );
+  }
 
   // ── Récupère le rôle depuis le storage ───────────────────────────────────
   String _getRole() {
@@ -91,6 +113,11 @@ class CustomSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final HomeController controller = Get.find<HomeController>();
+    final isMobile = MediaQuery.of(context).size.width < _mobileBreakpoint;
+
+    if (isMobile && !drawerMode) {
+      return const SizedBox.shrink();
+    }
 
     return Obx(() {
       final isCollapsed = controller.isSidebarCollapsed.value;
@@ -221,8 +248,8 @@ class CustomSidebar extends StatelessWidget {
     if (isAdmin) {
       items.add(const SizedBox(height: 20));
       items.add(_sectionTitle('ASSOCIATION', isCollapsed));
-      items.add(_menuItem(controller, 23, Icons.menu_book_outlined, 'Formations',
-          Routes.FORMATIONS, isCollapsed));
+      items.add(_menuItem(controller, 23, Icons.menu_book_outlined,
+          'Formations', Routes.FORMATIONS, isCollapsed));
       items.add(_menuItem(controller, 24, Icons.people_outline, 'Membres',
           Routes.ASSOCIATION_MEMBERS, isCollapsed));
       items.add(_menuItem(

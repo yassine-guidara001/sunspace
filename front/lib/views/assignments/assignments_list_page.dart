@@ -10,6 +10,7 @@ import 'package:flutter_getx_app/views/assignments/assignment_form_page.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/custom_sidebar.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/dashboard_topbar.dart';
 import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AssignmentsListPage extends GetView<AssignmentsController> {
   const AssignmentsListPage({super.key});
@@ -571,39 +572,68 @@ class _AssignmentsListContentState extends State<_AssignmentsListContent> {
                         ),
                       ),
                       const SizedBox(width: 24),
-                      SizedBox(
-                        height: 42,
-                        child: ElevatedButton(
-                          onPressed: () async {
-                            await _openSubmissionFlow(controller, item);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF3B82F6),
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Soumettre',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 42,
+                            height: 42,
+                            child: IconButton(
+                              tooltip: _hasAttachment(item)
+                                  ? 'Télécharger le devoir'
+                                  : 'Aucun document à télécharger',
+                              onPressed: () => _downloadAssignmentAttachment(
+                                  controller, item),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.white,
+                                foregroundColor: const Color(0xFF3B82F6),
+                                side: const BorderSide(
+                                  color: Color(0xFFD1D5DB),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
                               ),
-                              SizedBox(width: 6),
-                              Icon(Icons.chevron_right, size: 20),
-                            ],
+                              icon:
+                                  const Icon(Icons.download_rounded, size: 20),
+                            ),
                           ),
-                        ),
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            height: 42,
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                await _openSubmissionFlow(controller, item);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF3B82F6),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 10,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    'Soumettre',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SizedBox(width: 6),
+                                  Icon(Icons.chevron_right, size: 20),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -671,6 +701,60 @@ class _AssignmentsListContentState extends State<_AssignmentsListContent> {
     final m = value.month.toString().padLeft(2, '0');
     final y = value.year.toString();
     return '$d/$m/$y';
+  }
+
+  bool _hasAttachment(Assignment assignment) {
+    final url = assignment.attachmentUrl?.trim() ?? '';
+    return url.isNotEmpty;
+  }
+
+  String? _resolveAttachmentUrl(String? rawUrl) {
+    if (rawUrl == null || rawUrl.trim().isEmpty) return null;
+    final normalized = rawUrl.trim();
+    if (normalized.startsWith('http://') || normalized.startsWith('https://')) {
+      return normalized;
+    }
+    return 'http://localhost:3001$normalized';
+  }
+
+  Future<void> _downloadAssignmentAttachment(
+    AssignmentsController controller,
+    Assignment assignment,
+  ) async {
+    var resolved = _resolveAttachmentUrl(assignment.attachmentUrl);
+
+    // Certains endpoints liste ne renvoient pas toujours la pièce jointe.
+    if (resolved == null) {
+      final hydrated = await controller.fetchAssignmentById(
+        assignment.id,
+        documentId: assignment.documentId,
+      );
+      resolved = _resolveAttachmentUrl(hydrated?.attachmentUrl);
+    }
+
+    if (resolved == null) {
+      Get.snackbar('Erreur', 'Aucun fichier joint disponible pour ce devoir');
+      return;
+    }
+
+    final uri = Uri.tryParse(resolved);
+    if (uri == null) {
+      Get.snackbar('Erreur', 'Lien de téléchargement invalide');
+      return;
+    }
+
+    var launched = await launchUrl(
+      uri,
+      mode: LaunchMode.platformDefault,
+      webOnlyWindowName: '_blank',
+    );
+    if (!launched) {
+      launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+
+    if (!launched) {
+      Get.snackbar('Erreur', 'Impossible d’ouvrir le document');
+    }
   }
 
   Future<void> _openSubmissionFlow(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_getx_app/app/modules/home/modules/plan/models/space_model%20plan.dart';
 import 'package:flutter_getx_app/services/r%C3%A9servation_api_service.dart';
-
 import 'package:intl/intl.dart';
 
 class ReservationModal extends StatefulWidget {
@@ -53,6 +52,9 @@ class _ReservationModalState extends State<ReservationModal>
   String? _errorMessage;
   final Set<String> _selectedEquipmentIds = {};
 
+  final TextEditingController _participantsController = TextEditingController();
+  final FocusNode _participantsFocusNode = FocusNode();
+
   final List<String> _timeSlots = [
     '09:00',
     '09:30',
@@ -72,7 +74,7 @@ class _ReservationModalState extends State<ReservationModal>
     '16:30',
     '17:00',
     '17:30',
-    '18:00',
+    '18:00'
   ];
 
   List<EquipmentModel> get _equipments {
@@ -83,38 +85,38 @@ class _ReservationModalState extends State<ReservationModal>
   String _equipmentKey(int index, EquipmentModel equipment) {
     final id = equipment.id.trim();
     if (id.isNotEmpty) return 'id_$id';
-
     final name = equipment.name.trim().toLowerCase();
     if (name.isNotEmpty)
       return 'name_${name.replaceAll(RegExp(r'\s+'), '_')}_$index';
-
     return 'equipment_$index';
   }
 
-  double get _totalAmount {
-    double baseAmt = 0;
-    if (_fullDay) {
-      baseAmt = widget.space.pricePerDay;
-    } else if (_startTime != null && _endTime != null) {
+  double get _baseAmount {
+    if (_fullDay) return widget.space.pricePerDay;
+    if (_startTime != null && _endTime != null) {
       final start = _timeSlots.indexOf(_startTime!);
       final end = _timeSlots.indexOf(_endTime!);
       if (start >= 0 && end > start) {
-        baseAmt = (end - start) * 0.5 * widget.space.pricePerHour;
+        return (end - start) * 0.5 * widget.space.pricePerHour;
       }
     }
+    if (_startTime == '09:00' && _endTime == '18:00') {
+      return 9 * widget.space.pricePerHour;
+    }
+    return 0;
+  }
 
-    // Ajout du montant pour chaque équipement sélectionné
-    double equipmentAmt = 0;
+  double get _equipmentAmount {
+    double total = 0;
     for (var i = 0; i < _equipments.length; i++) {
       final e = _equipments[i];
       final key = _equipmentKey(i, e);
-      if (_selectedEquipmentIds.contains(key)) {
-        equipmentAmt += e.price;
-      }
+      if (_selectedEquipmentIds.contains(key)) total += e.price;
     }
-
-    return baseAmt + equipmentAmt;
+    return total;
   }
+
+  double get _totalAmount => _baseAmount + _equipmentAmount;
 
   @override
   void initState() {
@@ -126,12 +128,17 @@ class _ReservationModalState extends State<ReservationModal>
         .animate(
             CurvedAnimation(parent: _animController, curve: Curves.easeOut));
     _animController.forward();
+    _startTime = '09:00';
+    _endTime = '18:00';
+    _participantsController.text = _participants.toString();
     _loadReservations();
   }
 
   @override
   void dispose() {
     _animController.dispose();
+    _participantsController.dispose();
+    _participantsFocusNode.dispose();
     super.dispose();
   }
 
@@ -147,23 +154,15 @@ class _ReservationModalState extends State<ReservationModal>
     if (raw == null) return '';
     final text = raw.toString().trim();
     if (text.isEmpty) return '';
-
     final parsed = DateTime.tryParse(text);
-    if (parsed != null) {
-      return DateFormat('HH:mm').format(parsed.toLocal());
-    }
-
-    // Fallback: already a time-only value like "09:30".
-    if (text.length >= 5 && text.contains(':')) {
-      return text.substring(0, 5);
-    }
+    if (parsed != null) return DateFormat('HH:mm').format(parsed);
+    if (text.length >= 5 && text.contains(':')) return text.substring(0, 5);
     return '';
   }
 
   bool _isTimeSlotBooked(String time) {
     for (final res in _existingReservations) {
       final attrs = res['attributes'] ?? res;
-
       final statusRaw =
           (attrs['mystatus'] ?? attrs['status'] ?? '').toString().toLowerCase();
       final isCancelled = statusRaw.contains('annul') ||
@@ -171,7 +170,6 @@ class _ReservationModalState extends State<ReservationModal>
           statusRaw.contains('rej') ||
           statusRaw.contains('reject');
       if (isCancelled) continue;
-
       if (attrs['is_all_day'] == true || attrs['fullDay'] == true) return true;
       final startRaw = attrs['start_datetime'] ?? attrs['startTime'] ?? '';
       final endRaw = attrs['end_datetime'] ?? attrs['endTime'] ?? '';
@@ -205,7 +203,6 @@ class _ReservationModalState extends State<ReservationModal>
           _fullDay ? '${dateStr}T09:00:00' : '${dateStr}T${_startTime}:00';
       final endDt =
           _fullDay ? '${dateStr}T18:00:00' : '${dateStr}T${_endTime}:00';
-
       await widget.apiService.createReservationRaw({
         'data': {
           'space': widget.space.id,
@@ -220,7 +217,6 @@ class _ReservationModalState extends State<ReservationModal>
               _totalAmount > 0 ? _totalAmount : widget.space.pricePerDay,
         }
       });
-
       if (mounted) {
         Navigator.of(context).pop(true);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -255,7 +251,7 @@ class _ReservationModalState extends State<ReservationModal>
     final horizontalInset = isMobile ? 8.0 : 24.0;
     final maxDialogWidth = isMobile
         ? (viewport.width - (horizontalInset * 2)).clamp(320.0, 640.0)
-        : 820.0;
+        : (viewport.width - (horizontalInset * 2)).clamp(920.0, 1240.0);
     final borderRadius = isMobile ? 14.0 : 16.0;
 
     return FadeTransition(
@@ -265,41 +261,36 @@ class _ReservationModalState extends State<ReservationModal>
         child: Dialog(
           backgroundColor: Colors.transparent,
           insetPadding: EdgeInsets.symmetric(
-            horizontal: horizontalInset,
-            vertical: isMobile ? 10 : 24,
-          ),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: maxDialogWidth,
-              maxHeight: viewport.height * 0.92,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(borderRadius),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(borderRadius),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.black.withOpacity(0.18),
-                        blurRadius: 32,
-                        offset: const Offset(0, 8))
-                  ],
-                ),
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  _buildHeader(),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      padding: EdgeInsets.fromLTRB(
-                        isMobile ? 14 : 24,
-                        0,
-                        isMobile ? 14 : 24,
-                        isMobile ? 14 : 24,
-                      ),
-                      child: _buildBody(),
-                    ),
+              horizontal: horizontalInset, vertical: isMobile ? 10 : 24),
+          child: Align(
+            alignment: Alignment.center,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                  maxWidth: maxDialogWidth, maxHeight: viewport.height * 0.92),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(borderRadius),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(borderRadius),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.18),
+                          blurRadius: 32,
+                          offset: const Offset(0, 8))
+                    ],
                   ),
-                ]),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    _buildHeader(),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(isMobile ? 14 : 24, 0,
+                            isMobile ? 14 : 24, isMobile ? 14 : 24),
+                        child: _buildBody(),
+                      ),
+                    ),
+                  ]),
+                ),
               ),
             ),
           ),
@@ -314,13 +305,12 @@ class _ReservationModalState extends State<ReservationModal>
       decoration: BoxDecoration(
         border: const Border(bottom: BorderSide(color: Color(0xFFF1F5F9))),
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            const Color(0xFFF8FAFC),
-            const Color(0xFFF0FDF4).withOpacity(0.55),
-          ],
-        ),
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              const Color(0xFFF8FAFC),
+              const Color(0xFFF0FDF4).withOpacity(0.55),
+            ]),
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(
@@ -343,8 +333,7 @@ class _ReservationModalState extends State<ReservationModal>
               _InfoChip(
                   icon: Icons.euro_outlined,
                   label:
-                      '${widget.space.pricePerHour.toStringAsFixed(0)} TND/h • '
-                      '${widget.space.pricePerDay.toStringAsFixed(0)} TND/jour'),
+                      '${widget.space.pricePerHour.toStringAsFixed(0)} TND/h • ${widget.space.pricePerDay.toStringAsFixed(0)} TND/jour'),
             ]),
           ]),
         ),
@@ -362,64 +351,38 @@ class _ReservationModalState extends State<ReservationModal>
   Widget _buildBody() {
     return LayoutBuilder(builder: (context, constraints) {
       final isCompact = constraints.maxWidth < 760;
-
-      final leftColumn = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+      final leftColumn =
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SizedBox(height: 20),
+        _buildSection('Description', _buildDescription()),
+        if (_equipments.isNotEmpty) ...[
           const SizedBox(height: 20),
-          _buildSection('Description', _buildDescription()),
-          if (_equipments.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _buildSection('Équipements disponibles', _buildEquipments()),
-          ],
-          const SizedBox(height: 20),
-          _buildSection('Nombre de participants *', _buildParticipants()),
+          _buildSection('Équipements disponibles', _buildEquipments()),
         ],
-      );
-
-      final rightColumn = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SizedBox(height: 20),
-          _buildSection('Sélectionner une date', _buildCalendar()),
-          const SizedBox(height: 20),
-          _buildSection('Sélectionner l\'horaire', _buildTimeSelector()),
-          const SizedBox(height: 16),
-          _buildSection('Emploi du temps du Aujourd\'hui', _buildTimeline()),
-          const SizedBox(height: 20),
-          if (_errorMessage != null)
-            Container(
-              padding: const EdgeInsets.all(12),
-              margin: const EdgeInsets.only(bottom: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFEF2F2),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFFCA5A5)),
-              ),
-              child: Text(_errorMessage!,
-                  style:
-                      const TextStyle(color: Color(0xFFDC2626), fontSize: 13)),
-            ),
-          _buildSubmitButton(),
-          const SizedBox(height: 4),
-          const Center(
+        const SizedBox(height: 20),
+        _buildSection('Nombre de participants *', _buildParticipants()),
+      ]);
+      final rightColumn =
+          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const SizedBox(height: 20),
+        _buildSection('Sélectionner une date', _buildCalendar()),
+        const SizedBox(height: 20),
+        _buildSection('Sélectionner l\'horaire', _buildTimeSelector()),
+        const SizedBox(height: 16),
+        _buildSection('Emploi du temps', _buildTimeline()),
+        const SizedBox(height: 20),
+        _buildPriceSummary(),
+        const SizedBox(height: 20),
+        if (_errorMessage != null) _buildErrorMessage(),
+        _buildSubmitButton(),
+        const SizedBox(height: 4),
+        const Center(
             child: Text('* Tous les champs sont obligatoires',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11)),
-          ),
-        ],
-      );
-
-      if (isCompact) {
+                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 11))),
+      ]);
+      if (isCompact)
         return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            leftColumn,
-            const SizedBox(height: 10),
-            rightColumn,
-          ],
-        );
-      }
-
+            children: [leftColumn, const SizedBox(height: 10), rightColumn]);
       return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Expanded(flex: 5, child: leftColumn),
         const SizedBox(width: 28),
@@ -457,170 +420,109 @@ class _ReservationModalState extends State<ReservationModal>
       decoration: BoxDecoration(
           color: const Color(0xFFF8FAFC),
           borderRadius: BorderRadius.circular(8)),
-      child: Text(
-        desc.isEmpty ? 'Aucune description disponible.' : desc,
-        style: TextStyle(
-          fontSize: 13,
-          color:
-              desc.isEmpty ? const Color(0xFF94A3B8) : const Color(0xFF475569),
-          fontStyle: desc.isEmpty ? FontStyle.italic : FontStyle.normal,
-        ),
-      ),
+      child: Text(desc.isEmpty ? 'Aucune description disponible.' : desc,
+          style: TextStyle(
+              fontSize: 13,
+              color: desc.isEmpty
+                  ? const Color(0xFF94A3B8)
+                  : const Color(0xFF475569),
+              fontStyle: desc.isEmpty ? FontStyle.italic : FontStyle.normal)),
     );
   }
 
   Widget _buildEquipments() {
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: List.generate(_equipments.length, (index) {
-        final e = _equipments[index];
-        final String equipmentKey = _equipmentKey(index, e);
-        final isSelected = _selectedEquipmentIds.contains(equipmentKey);
-
-        return Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => setState(() {
-              if (isSelected) {
-                _selectedEquipmentIds.remove(equipmentKey);
-              } else {
-                _selectedEquipmentIds.add(equipmentKey);
-              }
-            }),
-            mouseCursor: SystemMouseCursors.click,
-            borderRadius: BorderRadius.circular(20),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
+        spacing: 8,
+        runSpacing: 8,
+        children: List.generate(_equipments.length, (index) {
+          final e = _equipments[index];
+          final equipmentKey = _equipmentKey(index, e);
+          final isSelected = _selectedEquipmentIds.contains(equipmentKey);
+          return ChoiceChip(
+            label: Text(
+                e.price > 0
+                    ? '${e.name} (${e.price.toStringAsFixed(0)} TND/j)'
+                    : e.name,
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color:
+                        isSelected ? Colors.white : const Color(0xFF166534))),
+            selected: isSelected,
+            showCheckmark: true,
+            checkmarkColor: Colors.white,
+            selectedColor: const Color(0xFF22C55E),
+            backgroundColor: const Color(0xFFDCFCE7),
+            side: BorderSide(
                 color: isSelected
-                    ? const Color(0xFF22C55E)
-                    : const Color(0xFFDCFCE7),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                    color: isSelected
-                        ? const Color(0xFF16A34A)
-                        : const Color(0xFF86EFAC)),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isSelected) ...[
-                    const Icon(Icons.check, size: 12, color: Colors.white),
-                    const SizedBox(width: 4),
-                  ],
-                  Text(
-                    e.price > 0
-                        ? '${e.name} (${e.price.toStringAsFixed(0)} TND/j)'
-                        : e.name,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color:
-                          isSelected ? Colors.white : const Color(0xFF166534),
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }),
-    );
+                    ? const Color(0xFF16A34A)
+                    : const Color(0xFF86EFAC)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            materialTapTargetSize: MaterialTapTargetSize.padded,
+            onSelected: (_) => setState(() {
+              if (isSelected)
+                _selectedEquipmentIds.remove(equipmentKey);
+              else
+                _selectedEquipmentIds.add(equipmentKey);
+            }),
+          );
+        }));
   }
 
   Widget _buildParticipants() {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(
-        children: [
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _participants > 1
-                  ? () => setState(() => _participants--)
-                  : null,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFDCFCE7)),
-                ),
-                child: Icon(
-                  Icons.remove,
-                  size: 20,
-                  color: _participants > 1
-                      ? const Color(0xFF22C55E)
-                      : const Color(0xFFCBD5E1),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Container(
-              height: 44,
-              decoration: BoxDecoration(
+      Row(children: [
+        _participantStepButton(
+            icon: Icons.remove,
+            enabled: _participants > 1,
+            onTap: () => _updateParticipants(_participants - 1)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Container(
+            height: 44,
+            decoration: BoxDecoration(
                 border: Border.all(color: const Color(0xFFE2E8F0)),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: TextFormField(
-                initialValue: _participants.toString(),
-                keyboardType: TextInputType.number,
-                textAlign: TextAlign.center,
-                onChanged: (v) {
-                  final val = int.tryParse(v);
-                  if (val != null)
-                    setState(() =>
-                        _participants = val.clamp(1, widget.space.maxPersons));
-                },
-                decoration: const InputDecoration(
+                borderRadius: BorderRadius.circular(10)),
+            child: TextFormField(
+              controller: _participantsController,
+              focusNode: _participantsFocusNode,
+              keyboardType: TextInputType.number,
+              textAlign: TextAlign.center,
+              onChanged: (v) {
+                final val = int.tryParse(v);
+                if (val != null && val >= 1 && val <= widget.space.maxPersons)
+                  _updateParticipants(val);
+                else if (val == null && v.isEmpty) _updateParticipants(1);
+              },
+              decoration: const InputDecoration(
                   border: InputBorder.none,
                   contentPadding:
-                      EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                ),
-              ),
+                      EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
             ),
           ),
-          const SizedBox(width: 12),
-          Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _participants < widget.space.maxPersons
-                  ? () => setState(() => _participants++)
-                  : null,
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFDCFCE7)),
-                ),
-                child: Icon(
-                  Icons.add,
-                  size: 20,
-                  color: _participants < widget.space.maxPersons
-                      ? const Color(0xFF22C55E)
-                      : const Color(0xFFCBD5E1),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        ),
+        const SizedBox(width: 12),
+        _participantStepButton(
+            icon: Icons.add,
+            enabled: _participants < widget.space.maxPersons,
+            onTap: () => _updateParticipants(_participants + 1)),
+      ]),
       const SizedBox(height: 8),
       Text('Capacité maximale: ${widget.space.maxPersons} personnes',
           style: const TextStyle(fontSize: 11.5, color: Color(0xFF64748B))),
     ]);
   }
 
+  void _updateParticipants(int newValue) {
+    setState(() {
+      _participants = newValue.clamp(1, widget.space.maxPersons);
+      _participantsController.text = _participants.toString();
+    });
+  }
+
   Widget _buildCalendar() {
-    return _CompactCalendar(
+    return _ModernCalendar(
       selectedDate: _selectedDate,
       onDateSelected: (d) {
         setState(() {
@@ -638,9 +540,7 @@ class _ReservationModalState extends State<ReservationModal>
     final endSlots = _startTime == null
         ? _timeSlots
         : _timeSlots.where((t) => t.compareTo(_startTime!) > 0).toList();
-
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      // Checkbox journée entière - zone entière cliquable
       InkWell(
         onTap: () => setState(() {
           _fullDay = !_fullDay;
@@ -652,27 +552,28 @@ class _ReservationModalState extends State<ReservationModal>
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           child: Row(children: [
             SizedBox(
-              width: 20,
-              height: 20,
-              child: Checkbox(
-                value: _fullDay,
-                onChanged: (_) {}, // Géré par InkWell parent
-                activeColor: const Color(0xFF22C55E),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(5)),
-              ),
-            ),
+                width: 20,
+                height: 20,
+                child: Checkbox(
+                  value: _fullDay,
+                  onChanged: (_) => setState(() {
+                    _fullDay = !_fullDay;
+                    _startTime = null;
+                    _endTime = null;
+                  }),
+                  activeColor: const Color(0xFF22C55E),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(5)),
+                )),
             const SizedBox(width: 10),
             const Expanded(
-              child: Text('Réserver toute la journée (09:00 - 18:00)',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF334155))),
-            ),
+                child: Text('Réserver toute la journée (09:00 - 18:00)',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF334155)))),
           ]),
         ),
       ),
       if (!_fullDay) ...[
         const SizedBox(height: 12),
-        // Labels
         const Row(children: [
           Expanded(
               child: Text('Heure de début',
@@ -683,81 +584,67 @@ class _ReservationModalState extends State<ReservationModal>
                   style: TextStyle(fontSize: 12, color: Color(0xFF64748B)))),
         ]),
         const SizedBox(height: 6),
-        // Selects natifs Flutter
         Row(children: [
           Expanded(
-              child: _buildSelect(
-            value: _startTime,
-            items: _timeSlots,
-            hint: 'Début (ex: 09:00)',
-            onChanged: (v) => setState(() {
-              _startTime = v;
-              if (_endTime != null &&
-                  v != null &&
-                  _endTime!.compareTo(v) <= 0) {
-                _endTime = null;
-              }
-            }),
-          )),
+              child: _buildTimeDropdown(
+                  value: _startTime,
+                  items: _timeSlots,
+                  hint: 'Début (ex: 09:00)',
+                  onChanged: (v) => setState(() {
+                        _startTime = v;
+                        if (_endTime != null &&
+                            v != null &&
+                            _endTime!.compareTo(v) <= 0) _endTime = null;
+                      }))),
           const SizedBox(width: 12),
           Expanded(
-              child: _buildSelect(
-            value: _endTime,
-            items: endSlots,
-            hint: 'Fin (ex: 10:00)',
-            onChanged: (v) => setState(() => _endTime = v),
-          )),
+              child: _buildTimeDropdown(
+                  value: _endTime,
+                  items: endSlots,
+                  hint: 'Fin (ex: 10:00)',
+                  onChanged: (v) => setState(() => _endTime = v))),
         ]),
         if (_startTime != null && _endTime != null) ...[
           const SizedBox(height: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
-              color: const Color(0xFFDCFCE7),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: const Color(0xFF86EFAC)),
-            ),
+                color: const Color(0xFFDCFCE7),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF86EFAC))),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Durée: $_startTime → $_endTime',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF166534),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  '${(_timeSlots.indexOf(_endTime!) - _timeSlots.indexOf(_startTime!)) * 30} min',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF16A34A),
-                  ),
-                ),
-              ],
-            ),
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Durée: $_startTime → $_endTime',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF166534),
+                          fontWeight: FontWeight.w500)),
+                  Text(
+                      '${(_timeSlots.indexOf(_endTime!) - _timeSlots.indexOf(_startTime!)) * 30} min',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF16A34A))),
+                ]),
           ),
         ]
       ],
     ]);
   }
 
-  Widget _buildSelect({
-    required String? value,
-    required List<String> items,
-    required String hint,
-    required void Function(String?) onChanged,
-  }) {
+  Widget _buildTimeDropdown(
+      {required String? value,
+      required List<String> items,
+      required String hint,
+      required void Function(String?) onChanged}) {
     final hasValue = value != null && value.isNotEmpty;
     return Container(
       height: 48,
       decoration: BoxDecoration(
         border: Border.all(
-          color: hasValue ? const Color(0xFF22C55E) : const Color(0xFFE2E8F0),
-          width: 1.5,
-        ),
+            color: hasValue ? const Color(0xFF22C55E) : const Color(0xFFE2E8F0),
+            width: 1.5),
         borderRadius: BorderRadius.circular(10),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -777,15 +664,20 @@ class _ReservationModalState extends State<ReservationModal>
             return DropdownMenuItem<String>(
               value: t,
               enabled: !booked,
-              child: Text(
-                t,
-                style: TextStyle(
-                    fontSize: 13.5,
-                    color: booked
-                        ? const Color(0xFFD1D5DB)
-                        : const Color(0xFF1E293B),
-                    fontWeight: booked ? FontWeight.normal : FontWeight.w500),
-              ),
+              child: Row(children: [
+                if (booked)
+                  const Icon(Icons.lock_clock,
+                      size: 14, color: Color(0xFFD1D5DB)),
+                if (booked) const SizedBox(width: 6),
+                Text(t,
+                    style: TextStyle(
+                        fontSize: 13.5,
+                        color: booked
+                            ? const Color(0xFFD1D5DB)
+                            : const Color(0xFF1E293B),
+                        fontWeight:
+                            booked ? FontWeight.normal : FontWeight.w500)),
+              ]),
             );
           }).toList(),
           onChanged: onChanged,
@@ -800,10 +692,9 @@ class _ReservationModalState extends State<ReservationModal>
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE2E8F0)),
-        ),
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE2E8F0))),
         child: const Text('Aucune réservation pour cette date',
             textAlign: TextAlign.center,
             style: TextStyle(
@@ -813,31 +704,86 @@ class _ReservationModalState extends State<ReservationModal>
       );
     }
     return Column(
-      children: _existingReservations.map((r) {
-        final attrs = r['attributes'] ?? r;
-        final startRaw = attrs['start_datetime'] ?? attrs['startTime'] ?? '';
-        final endRaw = attrs['end_datetime'] ?? attrs['endTime'] ?? '';
-        final isFullDay =
-            attrs['is_all_day'] == true || attrs['fullDay'] == true;
-        final startT = isFullDay ? '09:00' : _formatTimeFromRaw(startRaw);
-        final endT = isFullDay ? '18:00' : _formatTimeFromRaw(endRaw);
-        return Container(
-          margin: const EdgeInsets.only(bottom: 6),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
+        children: _existingReservations.map((r) {
+      final attrs = r['attributes'] ?? r;
+      final startRaw = attrs['start_datetime'] ?? attrs['startTime'] ?? '';
+      final endRaw = attrs['end_datetime'] ?? attrs['endTime'] ?? '';
+      final isFullDay = attrs['is_all_day'] == true || attrs['fullDay'] == true;
+      final startT = isFullDay ? '09:00' : _formatTimeFromRaw(startRaw);
+      final endT = isFullDay ? '18:00' : _formatTimeFromRaw(endRaw);
+      return Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
             color: const Color(0xFFFFF7ED),
             borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: const Color(0xFFFED7AA)),
-          ),
-          child: Row(children: [
-            const Icon(Icons.schedule, size: 14, color: Color(0xFFEA580C)),
-            const SizedBox(width: 6),
-            Text('$startT → $endT',
-                style:
-                    const TextStyle(fontSize: 12.5, color: Color(0xFF9A3412))),
+            border: Border.all(color: const Color(0xFFFED7AA))),
+        child: Row(children: [
+          const Icon(Icons.schedule, size: 14, color: Color(0xFFEA580C)),
+          const SizedBox(width: 6),
+          Text('$startT → $endT',
+              style: const TextStyle(fontSize: 12.5, color: Color(0xFF9A3412))),
+        ]),
+      );
+    }).toList());
+  }
+
+  Widget _buildPriceSummary() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFF86EFAC))),
+      child: Column(children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Text('Prix de base',
+              style: TextStyle(fontSize: 13, color: Color(0xFF166534))),
+          Text('${_baseAmount.toStringAsFixed(2)} TND',
+              style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF166534))),
+        ]),
+        if (_equipmentAmount > 0) ...[
+          const SizedBox(height: 6),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('Équipements',
+                style: TextStyle(fontSize: 13, color: Color(0xFF166534))),
+            Text('+ ${_equipmentAmount.toStringAsFixed(2)} TND',
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF16A34A))),
           ]),
-        );
-      }).toList(),
+        ],
+        const Divider(height: 16, color: Color(0xFF86EFAC)),
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          const Text('Total',
+              style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF0F172A))),
+          Text('${_totalAmount.toStringAsFixed(2)} TND',
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF22C55E))),
+        ]),
+      ]),
+    );
+  }
+
+  Widget _buildErrorMessage() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+          color: const Color(0xFFFEF2F2),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFFFCA5A5))),
+      child: Text(_errorMessage!,
+          style: const TextStyle(color: Color(0xFFDC2626), fontSize: 13)),
     );
   }
 
@@ -868,14 +814,33 @@ class _ReservationModalState extends State<ReservationModal>
       ),
     );
   }
+
+  Widget _participantStepButton(
+      {required IconData icon,
+      required bool enabled,
+      required VoidCallback onTap}) {
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+          color: const Color(0xFFF0FDF4),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFDCFCE7))),
+      child: IconButton(
+          onPressed: enabled ? onTap : null,
+          splashRadius: 22,
+          icon: Icon(icon, size: 20),
+          color: const Color(0xFF22C55E),
+          disabledColor: const Color(0xFFCBD5E1)),
+    );
+  }
 }
 
-// ─── InfoChip ────────────────────────────────────────────────────────────────
+// ----- InfoChip -----
 class _InfoChip extends StatelessWidget {
   final IconData icon;
   final String label;
   const _InfoChip({required this.icon, required this.label});
-
   @override
   Widget build(BuildContext context) {
     return Row(mainAxisSize: MainAxisSize.min, children: [
@@ -887,18 +852,18 @@ class _InfoChip extends StatelessWidget {
   }
 }
 
-// ─── Compact Calendar ────────────────────────────────────────────────────────
-class _CompactCalendar extends StatefulWidget {
+// ----- Modern Calendar (sans problèmes de clic) -----
+class _ModernCalendar extends StatefulWidget {
   final DateTime selectedDate;
   final void Function(DateTime) onDateSelected;
-  const _CompactCalendar(
+  const _ModernCalendar(
       {required this.selectedDate, required this.onDateSelected});
 
   @override
-  State<_CompactCalendar> createState() => _CompactCalendarState();
+  State<_ModernCalendar> createState() => _ModernCalendarState();
 }
 
-class _CompactCalendarState extends State<_CompactCalendar> {
+class _ModernCalendarState extends State<_ModernCalendar> {
   late DateTime _viewMonth;
   static const _weekdays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
   static const _months = [
@@ -913,7 +878,7 @@ class _CompactCalendarState extends State<_CompactCalendar> {
     'Septembre',
     'Octobre',
     'Novembre',
-    'Décembre',
+    'Décembre'
   ];
 
   @override
@@ -934,10 +899,16 @@ class _CompactCalendarState extends State<_CompactCalendar> {
     return cells;
   }
 
+  void _previousMonth() => setState(
+      () => _viewMonth = DateTime(_viewMonth.year, _viewMonth.month - 1));
+  void _nextMonth() => setState(
+      () => _viewMonth = DateTime(_viewMonth.year, _viewMonth.month + 1));
+
   @override
   Widget build(BuildContext context) {
     final today = DateTime.now();
     final days = _calendarDays;
+    final todayDate = DateTime(today.year, today.month, today.day);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -945,107 +916,75 @@ class _CompactCalendarState extends State<_CompactCalendar> {
           borderRadius: BorderRadius.circular(10)),
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Material(
-            color: Colors.transparent,
-            child: _NavBtn(
-                icon: Icons.chevron_left,
-                onTap: () => setState(() => _viewMonth =
-                    DateTime(_viewMonth.year, _viewMonth.month - 1))),
-          ),
+          _CalendarNavButton(icon: Icons.chevron_left, onTap: _previousMonth),
           Text('${_months[_viewMonth.month - 1]} ${_viewMonth.year}',
               style:
                   const TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5)),
-          Material(
-            color: Colors.transparent,
-            child: _NavBtn(
-                icon: Icons.chevron_right,
-                onTap: () => setState(() => _viewMonth =
-                    DateTime(_viewMonth.year, _viewMonth.month + 1))),
-          ),
+          _CalendarNavButton(icon: Icons.chevron_right, onTap: _nextMonth),
         ]),
         const SizedBox(height: 8),
-        Row(
-            children: _weekdays
-                .map((d) => Expanded(
-                      child: Center(
-                          child: Text(d,
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF94A3B8)))),
-                    ))
-                .toList()),
+        GridView.count(
+          crossAxisCount: 7,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          childAspectRatio: 1.2,
+          children: _weekdays
+              .map((d) => Center(
+                  child: Text(d,
+                      style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF94A3B8)))))
+              .toList(),
+        ),
         const SizedBox(height: 4),
-        ...List.generate(
-            days.length ~/ 7,
-            (row) => Row(
-                  children: List.generate(7, (col) {
-                    final d = days[row * 7 + col];
-                    if (d == null)
-                      return const Expanded(child: SizedBox(height: 32));
-                    final isSelected = d.year == widget.selectedDate.year &&
-                        d.month == widget.selectedDate.month &&
-                        d.day == widget.selectedDate.day;
-                    final isToday = d.year == today.year &&
-                        d.month == today.month &&
-                        d.day == today.day;
-                    final isPast = d
-                        .isBefore(DateTime(today.year, today.month, today.day));
-                    return Expanded(
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: isPast ? null : () => widget.onDateSelected(d),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            onTap:
-                                isPast ? null : () => widget.onDateSelected(d),
-                            mouseCursor: isPast
-                                ? SystemMouseCursors.forbidden
-                                : SystemMouseCursors.click,
-                            borderRadius: BorderRadius.circular(8),
-                            splashColor:
-                                const Color(0xFF22C55E).withOpacity(0.2),
-                            highlightColor:
-                                const Color(0xFF22C55E).withOpacity(0.1),
-                            child: Container(
-                              height: 40,
-                              margin: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? const Color(0xFF22C55E)
-                                    : isToday
-                                        ? const Color(0xFFDCFCE7)
-                                        : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
-                                border: isToday && !isSelected
-                                    ? Border.all(
-                                        color: const Color(0xFF86EFAC),
-                                        width: 1.5)
-                                    : null,
-                              ),
-                              alignment: Alignment.center,
-                              child: Text('${d.day}',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: isSelected || isToday
-                                        ? FontWeight.w600
-                                        : FontWeight.w400,
-                                    color: isSelected
-                                        ? Colors.white
-                                        : isPast
-                                            ? const Color(0xFFCBD5E1)
-                                            : isToday
-                                                ? const Color(0xFF166534)
-                                                : const Color(0xFF1E293B),
-                                  )),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                )),
+        GridView.count(
+          crossAxisCount: 7,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          childAspectRatio: 1.2,
+          children: days.map((d) {
+            if (d == null) return const SizedBox.shrink();
+            final isSelected = d.year == widget.selectedDate.year &&
+                d.month == widget.selectedDate.month &&
+                d.day == widget.selectedDate.day;
+            final isToday = d.year == today.year &&
+                d.month == today.month &&
+                d.day == today.day;
+            final isPast = d.isBefore(todayDate);
+            return GestureDetector(
+              onTap: () => widget.onDateSelected(d),
+              child: Container(
+                margin: const EdgeInsets.all(2),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF22C55E)
+                      : (isToday
+                          ? const Color(0xFFDCFCE7)
+                          : Colors.transparent),
+                  borderRadius: BorderRadius.circular(8),
+                  border: isToday && !isSelected
+                      ? Border.all(color: const Color(0xFF86EFAC), width: 1.5)
+                      : null,
+                ),
+                alignment: Alignment.center,
+                child: Text('${d.day}',
+                    style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: isSelected || isToday
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                        color: isSelected
+                            ? Colors.white
+                            : (isPast
+                                ? const Color(0xFF94A3B8)
+                                : (isToday
+                                    ? const Color(0xFF166534)
+                                    : const Color(0xFF1E293B))))),
+              ),
+            );
+          }).toList(),
+        ),
         const SizedBox(height: 8),
         Container(
           width: double.infinity,
@@ -1061,8 +1000,14 @@ class _CompactCalendarState extends State<_CompactCalendar> {
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF166534))),
-            const Text("Aujourd'hui",
-                style: TextStyle(fontSize: 10.5, color: Color(0xFF4ADE80))),
+            Text(
+                widget.selectedDate.year == today.year &&
+                        widget.selectedDate.month == today.month &&
+                        widget.selectedDate.day == today.day
+                    ? "Aujourd'hui"
+                    : 'Date sélectionnée',
+                style:
+                    const TextStyle(fontSize: 10.5, color: Color(0xFF4ADE80))),
           ]),
         ),
       ]),
@@ -1070,37 +1015,27 @@ class _CompactCalendarState extends State<_CompactCalendar> {
   }
 }
 
-class _NavBtn extends StatelessWidget {
+class _CalendarNavButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
-  const _NavBtn({required this.icon, required this.onTap});
+  const _CalendarNavButton({required this.icon, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(4),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: onTap,
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: onTap,
-            mouseCursor: SystemMouseCursors.click,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: 40,
+          height: 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
             borderRadius: BorderRadius.circular(10),
-            splashColor: const Color(0xFF22C55E).withOpacity(0.2),
-            highlightColor: const Color(0xFF22C55E).withOpacity(0.1),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFFE2E8F0), width: 1.5),
-                borderRadius: BorderRadius.circular(10),
-                color: Colors.white,
-              ),
-              child: Icon(icon, size: 20, color: const Color(0xFF64748B)),
-            ),
           ),
+          child: Icon(icon, size: 20, color: const Color(0xFF64748B)),
         ),
       ),
     );

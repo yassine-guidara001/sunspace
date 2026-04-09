@@ -163,7 +163,7 @@ class _MyReservationsViewState extends State<MyReservationsView> {
               const DashboardTopBar(),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 28),
+                  padding: const EdgeInsets.fromLTRB(18, 16, 18, 22),
                   child: Center(
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1040),
@@ -171,9 +171,9 @@ class _MyReservationsViewState extends State<MyReservationsView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildHero(context),
-                          const SizedBox(height: 28),
+                          const SizedBox(height: 20),
                           _buildSectionHeader(),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
                           _buildList(),
                         ],
                       ),
@@ -194,7 +194,7 @@ class _MyReservationsViewState extends State<MyReservationsView> {
 
     return Obx(() => Container(
           width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(28, 26, 28, 24),
+          padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
           decoration: BoxDecoration(
             color: const Color(0xFFEFF5FF),
             borderRadius: BorderRadius.circular(24),
@@ -464,7 +464,7 @@ class _MyReservationsViewState extends State<MyReservationsView> {
     final docId = r['documentId']?.toString() ?? '';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -477,7 +477,7 @@ class _MyReservationsViewState extends State<MyReservationsView> {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

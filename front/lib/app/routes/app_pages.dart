@@ -31,6 +31,7 @@ import 'package:flutter_getx_app/app/modules/home/contollers/views/settings_view
 import 'package:flutter_getx_app/app/modules/home/contollers/views/user_view.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/sessions_view.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/notifications_page.dart';
+import 'package:flutter_getx_app/app/modules/home/contollers/views/communication_view.dart';
 import 'package:flutter_getx_app/views/assignments/assignments_list_page.dart';
 import 'package:flutter_getx_app/app/modules/spaces/controllers/spaces_controller.dart';
 import 'package:flutter_getx_app/app/modules/spaces/views/spaces_view.dart';
@@ -254,7 +255,7 @@ class AppPages {
     ),
     GetPage(
       name: Routes.COMMUNICATION,
-      page: () => HomeView(),
+      page: () => const CommunicationView(),
       binding: BindingsBuilder(() {
         Get.put(HomeController(), permanent: true);
       }),
