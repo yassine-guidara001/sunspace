@@ -109,6 +109,73 @@ class AssociationsService {
     }
   }
 
+  Future<List<UserOption>> getAssociationMembers(String documentId) async {
+    final docId = documentId.trim();
+    if (docId.isEmpty) {
+      throw Exception('documentId manquant pour charger les membres');
+    }
+
+    final response = await http.get(
+      Uri.parse(
+          '$_baseApiUrl/associations/${Uri.encodeComponent(docId)}?populate=*'),
+      headers: _authService.authHeaders,
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_extractErrorMessage(response));
+    }
+
+    final decoded = _decodeJson(response.body);
+    final raw = _extractDataMap(decoded);
+    final attrs = _extractAttributes(raw);
+    final rawMembers = attrs['members'] ?? raw['members'];
+
+    if (rawMembers is! List) return const <UserOption>[];
+
+    final members = <UserOption>[];
+    for (final item in rawMembers) {
+      final user = _asMap(item);
+      final userAttrs = _extractAttributes(user);
+      final id = _toInt(user['id'] ?? userAttrs['id']);
+      if (id <= 0) continue;
+
+      final name = _firstNonEmpty([
+        userAttrs['username'],
+        userAttrs['name'],
+        userAttrs['fullName'],
+      ], fallback: 'Utilisateur');
+
+      final email = _firstNonEmpty([userAttrs['email']]);
+      members.add(UserOption(id: id, name: name, email: email));
+    }
+
+    return members;
+  }
+
+  Future<void> updateAssociationMembers(
+    String documentId,
+    List<int> memberIds,
+  ) async {
+    final docId = documentId.trim();
+    if (docId.isEmpty) {
+      throw Exception('documentId manquant pour modifier les membres');
+    }
+
+    final response = await http.put(
+      Uri.parse('$_baseApiUrl/associations/${Uri.encodeComponent(docId)}'),
+      headers: _authService.authHeaders,
+      body: jsonEncode({
+        'data': {
+          'members': memberIds,
+        }
+      }),
+    );
+
+    if (response.statusCode != 200 && response.statusCode != 201) {
+      throw Exception(_extractErrorMessage(response));
+    }
+  }
+
   Future<void> deleteAssociation(String documentId) async {
     final docId = documentId.trim();
     if (docId.isEmpty) {
@@ -243,6 +310,17 @@ class AssociationsService {
       if (data is Map<String, dynamic>) return [data];
     }
     return const [];
+  }
+
+  Map<String, dynamic> _extractDataMap(dynamic decoded) {
+    if (decoded is Map<String, dynamic>) {
+      final data = decoded['data'];
+      if (data is Map<String, dynamic>) return data;
+      if (data is Map) return Map<String, dynamic>.from(data);
+      return decoded;
+    }
+    if (decoded is Map) return Map<String, dynamic>.from(decoded);
+    return <String, dynamic>{};
   }
 
   Map<String, dynamic> _asMap(dynamic value) {

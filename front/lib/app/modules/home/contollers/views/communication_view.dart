@@ -650,7 +650,8 @@ class _CommunicationViewState extends State<CommunicationView>
 
   @override
   Widget build(BuildContext context) {
-    final isCompact = MediaQuery.of(context).size.width < 920;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final hideSidebar = screenWidth < 1280;
 
     return Scaffold(
       backgroundColor: _bg,
@@ -674,83 +675,91 @@ class _CommunicationViewState extends State<CommunicationView>
           ),
           Row(
             children: [
-              const CustomSidebar(),
+              if (!hideSidebar) const CustomSidebar(),
               Expanded(
-                child: Column(
-                  children: [
-                    _buildTopBar(context, isCompact),
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.all(isCompact ? 16 : 24),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildHeader(isCompact),
-                            const SizedBox(height: 16),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.96),
-                                border: Border.all(color: _border),
-                                borderRadius: BorderRadius.circular(18),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x12000000),
-                                    blurRadius: 20,
-                                    offset: Offset(0, 8),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final contentIsCompact = constraints.maxWidth < 1000;
+
+                    return Column(
+                      children: [
+                        _buildTopBar(context, contentIsCompact || hideSidebar),
+                        Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.all(contentIsCompact ? 12 : 24),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildHeader(contentIsCompact),
+                                const SizedBox(height: 16),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.96),
+                                    border: Border.all(color: _border),
+                                    borderRadius: BorderRadius.circular(18),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x12000000),
+                                        blurRadius: 20,
+                                        offset: Offset(0, 8),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
-                              child: TabBar(
-                                controller: _tabController,
-                                labelColor: const Color(0xFF0B6BFF),
-                                unselectedLabelColor: const Color(0xFF64748B),
-                                labelStyle: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
-                                ),
-                                unselectedLabelStyle: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                                indicatorSize: TabBarIndicatorSize.tab,
-                                indicator: BoxDecoration(
-                                  color: const Color(0xFFEAF2FF),
-                                  borderRadius: BorderRadius.circular(14),
-                                ),
-                                indicatorPadding: const EdgeInsets.all(6),
-                                splashBorderRadius: BorderRadius.circular(14),
-                                tabs: const [
-                                  Tab(text: 'Messagerie privée'),
-                                  Tab(text: 'Forum de discussion'),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            if (_errorMessage.trim().isNotEmpty)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: _BannerMessage(
-                                  message: _errorMessage,
-                                  onRetry: _reloadCurrentSection,
-                                ),
-                              ),
-                            Expanded(
-                              child: _isLoading
-                                  ? const Center(
-                                      child: CircularProgressIndicator())
-                                  : TabBarView(
-                                      controller: _tabController,
-                                      children: [
-                                        _buildMessagingTab(),
-                                        _buildForumTab(),
-                                      ],
+                                  child: TabBar(
+                                    controller: _tabController,
+                                    labelColor: const Color(0xFF0B6BFF),
+                                    unselectedLabelColor:
+                                        const Color(0xFF64748B),
+                                    labelStyle: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
                                     ),
+                                    unselectedLabelStyle: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                    indicatorSize: TabBarIndicatorSize.tab,
+                                    indicator: BoxDecoration(
+                                      color: const Color(0xFFEAF2FF),
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    indicatorPadding: const EdgeInsets.all(6),
+                                    splashBorderRadius:
+                                        BorderRadius.circular(14),
+                                    tabs: const [
+                                      Tab(text: 'Messagerie privée'),
+                                      Tab(text: 'Forum de discussion'),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                if (_errorMessage.trim().isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _BannerMessage(
+                                      message: _errorMessage,
+                                      onRetry: _reloadCurrentSection,
+                                    ),
+                                  ),
+                                Expanded(
+                                  child: _isLoading
+                                      ? const Center(
+                                          child: CircularProgressIndicator())
+                                      : TabBarView(
+                                          controller: _tabController,
+                                          children: [
+                                            _buildMessagingTab(),
+                                            _buildForumTab(),
+                                          ],
+                                        ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
             ],
@@ -1075,7 +1084,6 @@ class _CommunicationViewState extends State<CommunicationView>
   Widget _buildMessagingTab() {
     final recipientOptions = _filteredRecipients;
     final conversationMessages = _selectedConversationMessages;
-    final isNarrow = MediaQuery.of(context).size.width < 1200;
 
     if (_selectedRecipientId == null && recipientOptions.isNotEmpty) {
       _selectedRecipientId = recipientOptions.first['id'] as int?;
@@ -1347,48 +1355,52 @@ class _CommunicationViewState extends State<CommunicationView>
       ),
     );
 
-    if (isNarrow) {
-      return SingleChildScrollView(
-        child: Column(
-          children: [
-            recipientCard,
-            const SizedBox(height: 12),
-            conversationCard,
-            const SizedBox(height: 12),
-            composerCard,
-            const SizedBox(height: 12),
-            SizedBox(height: 420, child: messagesCard),
-          ],
-        ),
-      );
-    }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 1040;
 
-    return Column(
-      children: [
-        Row(
+        if (isNarrow) {
+          return SingleChildScrollView(
+            child: Column(
+              children: [
+                recipientCard,
+                const SizedBox(height: 12),
+                conversationCard,
+                const SizedBox(height: 12),
+                composerCard,
+                const SizedBox(height: 12),
+                SizedBox(height: 420, child: messagesCard),
+              ],
+            ),
+          );
+        }
+
+        return Column(
           children: [
-            Expanded(child: recipientCard),
-            const SizedBox(width: 12),
-            Expanded(child: conversationCard),
+            Row(
+              children: [
+                Expanded(child: recipientCard),
+                const SizedBox(width: 12),
+                Expanded(child: conversationCard),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(flex: 3, child: composerCard),
+                  const SizedBox(width: 12),
+                  Expanded(flex: 4, child: messagesCard),
+                ],
+              ),
+            ),
           ],
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: Row(
-            children: [
-              Expanded(flex: 3, child: composerCard),
-              const SizedBox(width: 12),
-              Expanded(flex: 4, child: messagesCard),
-            ],
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 
   Widget _buildForumTab() {
-    final isNarrow = MediaQuery.of(context).size.width < 1200;
-
     final publishCard = Container(
       padding: const EdgeInsets.all(18),
       decoration: _surfaceDecoration(),
@@ -1943,129 +1955,167 @@ class _CommunicationViewState extends State<CommunicationView>
       ),
     );
 
-    final replyForm = Container(
-      padding: const EdgeInsets.all(18),
-      decoration: _surfaceDecoration(),
-      child: isNarrow
-          ? Column(
-              children: [
-                DropdownButtonFormField<int>(
-                  value: _replyThreadId,
-                  decoration: _inputDecoration('Discussion à répondre'),
-                  items: _threads
-                      .map((thread) => DropdownMenuItem<int>(
-                            value: thread['id'] as int,
-                            child: Text(thread['title'].toString(),
-                                overflow: TextOverflow.ellipsis),
-                          ))
-                      .toList(),
-                  onChanged: (value) => setState(() => _replyThreadId = value),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _threadReplyCtrl,
-                  minLines: 2,
-                  maxLines: 4,
-                  decoration: _inputDecoration('Votre réponse...'),
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 42,
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _isReplying ? null : _replyToThread,
-                    icon: _isReplying
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.reply_outlined, size: 16),
-                    label: const Text('Répondre'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0B6BFF),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                    ),
-                  ),
-                ),
-              ],
-            )
-          : Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<int>(
-                    value: _replyThreadId,
-                    decoration: _inputDecoration('Discussion à répondre'),
-                    items: _threads
-                        .map((thread) => DropdownMenuItem<int>(
-                              value: thread['id'] as int,
-                              child: Text(thread['title'].toString(),
-                                  overflow: TextOverflow.ellipsis),
-                            ))
-                        .toList(),
-                    onChanged: (value) =>
-                        setState(() => _replyThreadId = value),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: _threadReplyCtrl,
-                    minLines: 2,
-                    maxLines: 4,
-                    decoration: _inputDecoration('Votre réponse...'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                SizedBox(
-                  height: 42,
-                  child: ElevatedButton.icon(
-                    onPressed: _isReplying ? null : _replyToThread,
-                    icon: _isReplying
-                        ? const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.reply_outlined, size: 16),
-                    label: const Text('Répondre'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF0B6BFF),
-                      foregroundColor: Colors.white,
-                      elevation: 0,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isNarrow = constraints.maxWidth < 1080;
+        final useStackedReplyForm = constraints.maxWidth < 1180;
 
-    return Column(
-      children: [
-        Expanded(
-          child: isNarrow
+        final replyForm = Container(
+          padding: const EdgeInsets.all(18),
+          decoration: _surfaceDecoration(),
+          child: useStackedReplyForm
               ? Column(
                   children: [
-                    Expanded(child: publishCard),
-                    const SizedBox(height: 12),
-                    Expanded(child: discussionsCard),
+                    DropdownButtonFormField<int>(
+                      value: _replyThreadId,
+                      isExpanded: true,
+                      decoration: _inputDecoration('Discussion à répondre'),
+                      items: _threads
+                          .map((thread) => DropdownMenuItem<int>(
+                                value: thread['id'] as int,
+                                child: Text(thread['title'].toString(),
+                                    overflow: TextOverflow.ellipsis),
+                              ))
+                          .toList(),
+                      selectedItemBuilder: (context) {
+                        return _threads
+                            .map(
+                              (thread) => Align(
+                                alignment: Alignment.centerLeft,
+                                child: Text(
+                                  thread['title'].toString(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList();
+                      },
+                      onChanged: (value) =>
+                          setState(() => _replyThreadId = value),
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _threadReplyCtrl,
+                      minLines: 2,
+                      maxLines: 4,
+                      decoration: _inputDecoration('Votre réponse...'),
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 42,
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _isReplying ? null : _replyToThread,
+                        icon: _isReplying
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.reply_outlined, size: 16),
+                        label: const Text('Répondre'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0B6BFF),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
                   ],
                 )
               : Row(
                   children: [
-                    Expanded(flex: 3, child: publishCard),
+                    Expanded(
+                      child: DropdownButtonFormField<int>(
+                        value: _replyThreadId,
+                        isExpanded: true,
+                        decoration: _inputDecoration('Discussion à répondre'),
+                        items: _threads
+                            .map((thread) => DropdownMenuItem<int>(
+                                  value: thread['id'] as int,
+                                  child: Text(thread['title'].toString(),
+                                      overflow: TextOverflow.ellipsis),
+                                ))
+                            .toList(),
+                        selectedItemBuilder: (context) {
+                          return _threads
+                              .map(
+                                (thread) => Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    thread['title'].toString(),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList();
+                        },
+                        onChanged: (value) =>
+                            setState(() => _replyThreadId = value),
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Expanded(flex: 4, child: discussionsCard),
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: _threadReplyCtrl,
+                        minLines: 2,
+                        maxLines: 4,
+                        decoration: _inputDecoration('Votre réponse...'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      height: 42,
+                      child: ElevatedButton.icon(
+                        onPressed: _isReplying ? null : _replyToThread,
+                        icon: _isReplying
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.reply_outlined, size: 16),
+                        label: const Text('Répondre'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0B6BFF),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-        ),
-        const SizedBox(height: 12),
-        replyForm,
-      ],
+        );
+
+        return Column(
+          children: [
+            Expanded(
+              child: isNarrow
+                  ? Column(
+                      children: [
+                        Expanded(child: publishCard),
+                        const SizedBox(height: 12),
+                        Expanded(child: discussionsCard),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(flex: 3, child: publishCard),
+                        const SizedBox(width: 12),
+                        Expanded(flex: 4, child: discussionsCard),
+                      ],
+                    ),
+            ),
+            const SizedBox(height: 12),
+            replyForm,
+          ],
+        );
+      },
     );
   }
 

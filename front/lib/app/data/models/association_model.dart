@@ -55,6 +55,7 @@ class AssociationFormPayload {
     required this.website,
     required this.budget,
     required this.adminId,
+    required this.verified,
   });
 
   final String name;
@@ -64,6 +65,7 @@ class AssociationFormPayload {
   final String website;
   final double budget;
   final int? adminId;
+  final bool verified;
 
   Map<String, dynamic> toStrapiData() {
     final data = <String, dynamic>{
@@ -73,6 +75,7 @@ class AssociationFormPayload {
       'phone': phone,
       'website': website,
       'budget': budget,
+      'verified': verified,
     };
 
     if (adminId != null) {

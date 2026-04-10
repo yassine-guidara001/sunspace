@@ -4,6 +4,7 @@ import 'package:flutter_getx_app/app/modules/home/contollers/associations_contro
 import 'package:flutter_getx_app/app/modules/home/contollers/views/custom_sidebar.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/dashboard_topbar.dart';
 import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AssociationsView extends StatefulWidget {
   const AssociationsView({super.key});
@@ -81,6 +82,35 @@ class _AssociationsViewState extends State<AssociationsView> {
     );
   }
 
+  Future<void> _openMembersDialog(
+    AssociationModel row, {
+    int initialTab = 0,
+  }) async {
+    List<UserOption> currentMembers = <UserOption>[];
+    try {
+      currentMembers = await controller.getAssociationMembers(row.documentId);
+    } catch (e) {
+      Get.snackbar(
+        'Associations',
+        'Impossible de charger les membres: $e',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
+
+    await showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.45),
+      builder: (_) => _AssociationMembersDialog(
+        associationName: row.name,
+        users: controller.adminOptions.toList(),
+        initialMembers: currentMembers,
+        initialTab: initialTab,
+        onMembersChanged: (ids) =>
+            controller.updateAssociationMembers(row.documentId, ids),
+      ),
+    );
+  }
+
   Future<void> _confirmDelete(AssociationModel row) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -122,6 +152,45 @@ class _AssociationsViewState extends State<AssociationsView> {
       'Association supprimee',
       snackPosition: SnackPosition.BOTTOM,
     );
+  }
+
+  Future<void> _openAssociationWebsite(AssociationModel row) async {
+    final raw = row.website.trim();
+    if (raw.isEmpty) {
+      Get.snackbar(
+        'Associations',
+        'Aucun lien de site web pour cette association.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    final normalized = raw.startsWith('http://') || raw.startsWith('https://')
+        ? raw
+        : 'https://$raw';
+    final uri = Uri.tryParse(normalized);
+
+    if (uri == null || uri.host.trim().isEmpty) {
+      Get.snackbar(
+        'Associations',
+        'Lien de site web invalide.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    final launched = await launchUrl(
+      uri,
+      mode: LaunchMode.externalApplication,
+    );
+
+    if (!launched) {
+      Get.snackbar(
+        'Associations',
+        'Impossible d\'ouvrir le lien dans le navigateur.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    }
   }
 
   @override
@@ -299,6 +368,8 @@ class _AssociationsViewState extends State<AssociationsView> {
         data: controller.associations[index],
         onEdit: _openEditDialog,
         onDelete: _confirmDelete,
+        onOpenWebsite: _openAssociationWebsite,
+        onMembers: _openMembersDialog,
       ),
     );
   }
@@ -353,11 +424,15 @@ class _AssociationRow extends StatelessWidget {
     required this.data,
     required this.onEdit,
     required this.onDelete,
+    required this.onOpenWebsite,
+    required this.onMembers,
   });
 
   final AssociationModel data;
   final ValueChanged<AssociationModel> onEdit;
   final ValueChanged<AssociationModel> onDelete;
+  final ValueChanged<AssociationModel> onOpenWebsite;
+  final ValueChanged<AssociationModel> onMembers;
 
   @override
   Widget build(BuildContext context) {
@@ -458,19 +533,26 @@ class _AssociationRow extends StatelessWidget {
           ),
           Expanded(
             flex: 15,
-            child: Row(
-              children: [
-                const Icon(Icons.people_outline,
-                    size: 14, color: Color(0xFF475569)),
-                const SizedBox(width: 6),
-                Text(
-                  '${data.membersCount} membres',
-                  style: const TextStyle(
-                    color: Color(0xFF0F172A),
-                    fontWeight: FontWeight.w600,
-                  ),
+            child: InkWell(
+              onTap: () => onMembers(data),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    const Icon(Icons.people_outline,
+                        size: 14, color: Color(0xFF475569)),
+                    const SizedBox(width: 6),
+                    Text(
+                      '${data.membersCount} membres',
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
           Expanded(
@@ -479,13 +561,8 @@ class _AssociationRow extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 IconButton(
-                  onPressed: () {
-                    Get.snackbar(
-                      'Associations',
-                      'documentId: ${data.documentId}',
-                      snackPosition: SnackPosition.BOTTOM,
-                    );
-                  },
+                  onPressed: () => onOpenWebsite(data),
+                  tooltip: 'Ouvrir le site',
                   icon: const Icon(Icons.open_in_new,
                       size: 16, color: Color(0xFF334155)),
                   constraints: const BoxConstraints(),
@@ -545,6 +622,7 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
   late final TextEditingController _budgetController;
 
   String? _admin;
+  bool _verified = false;
 
   @override
   void initState() {
@@ -565,6 +643,7 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
     );
 
     _admin = initial?.adminId != null ? '${initial!.adminId}' : null;
+    _verified = initial?.verified ?? false;
 
     if (_admin != null &&
         !widget.adminOptions.any((u) => '${u.id}' == _admin)) {
@@ -590,7 +669,7 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: Container(
         width: 420,
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
         decoration: BoxDecoration(
           color: const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(10),
@@ -613,8 +692,8 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
                   child: Text(
                     widget.title,
                     style: const TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w700,
                       color: Color(0xFF0F172A),
                     ),
                   ),
@@ -636,22 +715,22 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
               style: const TextStyle(
                 color: Color(0xFF64748B),
                 fontWeight: FontWeight.w500,
-                fontSize: 12,
+                fontSize: 11,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             _fieldLabel("Nom de l'association"),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             _input(controller: _nameController, hint: 'ASBL Dev'),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             _fieldLabel('Description'),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             _input(
               controller: _descController,
               hint: "Description de l'association...",
               maxLines: 2,
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -659,7 +738,7 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _fieldLabel('Email'),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       _input(
                         controller: _emailController,
                         hint: 'contact@assoc.com',
@@ -673,18 +752,18 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _fieldLabel('Telephone'),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       _input(controller: _phoneController, hint: '+212...'),
                     ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             _fieldLabel('Site Web'),
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             _input(controller: _webController, hint: 'https://...'),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -692,7 +771,7 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _fieldLabel('Budget initial'),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       _input(controller: _budgetController, hint: '0'),
                     ],
                   ),
@@ -703,7 +782,7 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _fieldLabel('Administrateur principal'),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       _adminDropdown(),
                     ],
                   ),
@@ -713,7 +792,28 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
             const SizedBox(height: 10),
             Row(
               children: [
-                const Spacer(),
+                Transform.scale(
+                  scale: 0.85,
+                  child: Switch(
+                    value: _verified,
+                    onChanged: (value) => setState(() => _verified = value),
+                    activeColor: Colors.white,
+                    activeTrackColor: const Color(0xFF1664FF),
+                    inactiveThumbColor: Colors.white,
+                    inactiveTrackColor: const Color(0xFFE2E8F0),
+                  ),
+                ),
+                const SizedBox(width: 2),
+                const Expanded(
+                  child: Text(
+                    'Association verifiee',
+                    style: TextStyle(
+                      color: Color(0xFF334155),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
                 SizedBox(
                   height: 38,
                   child: ElevatedButton(
@@ -760,6 +860,7 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
       website: _webController.text.trim(),
       budget: double.tryParse(_budgetController.text.trim()) ?? 0,
       adminId: int.tryParse(_admin ?? ''),
+      verified: _verified,
     );
 
     Get.back(result: payload);
@@ -793,7 +894,7 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
         filled: true,
         fillColor: Colors.white,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0xFFDCE4EF)),
@@ -819,7 +920,7 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
         filled: true,
         fillColor: Colors.white,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: const BorderSide(color: Color(0xFFDCE4EF)),
@@ -841,6 +942,530 @@ class _CreateAssociationDialogState extends State<_CreateAssociationDialog> {
           )
           .toList(),
       onChanged: (v) => setState(() => _admin = v),
+    );
+  }
+}
+
+class _AssociationMembersDialog extends StatefulWidget {
+  const _AssociationMembersDialog({
+    required this.associationName,
+    required this.users,
+    required this.initialMembers,
+    required this.onMembersChanged,
+    this.initialTab = 0,
+  });
+
+  final String associationName;
+  final List<UserOption> users;
+  final List<UserOption> initialMembers;
+  final Future<String?> Function(List<int> memberIds) onMembersChanged;
+  final int initialTab;
+
+  @override
+  State<_AssociationMembersDialog> createState() =>
+      _AssociationMembersDialogState();
+}
+
+class _AssociationMembersDialogState extends State<_AssociationMembersDialog> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  List<UserOption> _currentMembers = <UserOption>[];
+  String _search = '';
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentMembers = _dedupeById(widget.initialMembers);
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  List<UserOption> _dedupeById(List<UserOption> list) {
+    final map = <int, UserOption>{};
+    for (final user in list) {
+      map[user.id] = user;
+    }
+    return map.values.toList(growable: false);
+  }
+
+  Set<int> get _currentMemberIds {
+    return _currentMembers.map((m) => m.id).toSet();
+  }
+
+  List<UserOption> get _filteredAvailableUsers {
+    final ids = _currentMemberIds;
+    final available = widget.users.where((u) => !ids.contains(u.id)).toList();
+    if (_search.trim().isEmpty) return available;
+
+    final query = _search.toLowerCase().trim();
+    return available.where((u) {
+      return u.name.toLowerCase().contains(query) ||
+          u.email.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  Future<void> _addMember(UserOption user) async {
+    if (_isSaving) return;
+
+    final previous = List<UserOption>.from(_currentMembers);
+    setState(() {
+      _currentMembers = _dedupeById(<UserOption>[..._currentMembers, user]);
+      _isSaving = true;
+    });
+
+    final memberIds = _currentMembers.map((m) => m.id).toList(growable: false);
+    final error = await widget.onMembersChanged(memberIds);
+
+    if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        _currentMembers = previous;
+        _isSaving = false;
+      });
+      Get.snackbar(
+        'Associations',
+        error,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    setState(() => _isSaving = false);
+  }
+
+  Future<void> _removeMember(UserOption user) async {
+    if (_isSaving) return;
+
+    final previous = List<UserOption>.from(_currentMembers);
+    setState(() {
+      _currentMembers = _currentMembers.where((m) => m.id != user.id).toList();
+      _isSaving = true;
+    });
+
+    final memberIds = _currentMembers.map((m) => m.id).toList(growable: false);
+    final error = await widget.onMembersChanged(memberIds);
+
+    if (!mounted) return;
+
+    if (error != null) {
+      setState(() {
+        _currentMembers = previous;
+        _isSaving = false;
+      });
+      Get.snackbar(
+        'Associations',
+        error,
+        snackPosition: SnackPosition.BOTTOM,
+      );
+      return;
+    }
+
+    setState(() => _isSaving = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      initialIndex: widget.initialTab,
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Container(
+          width: 470,
+          height: 500,
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFD6DFEA)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 18,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Membres de association',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    onTap: Get.back,
+                    borderRadius: BorderRadius.circular(20),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child:
+                          Icon(Icons.close, size: 18, color: Color(0xFF64748B)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Gerez la liste des membres appartenant a cette association.',
+                style: const TextStyle(
+                  color: Color(0xFF64748B),
+                  fontWeight: FontWeight.w500,
+                  fontSize: 11,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFDCE4EF)),
+                ),
+                child: TabBar(
+                  labelPadding: const EdgeInsets.symmetric(horizontal: 12),
+                  labelColor: const Color(0xFF0F172A),
+                  unselectedLabelColor: const Color(0xFF334155),
+                  labelStyle: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicator: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFDCE4EF)),
+                  ),
+                  indicatorPadding: const EdgeInsets.all(4),
+                  tabs: [
+                    Tab(text: 'Actuels (${_currentMembers.length})'),
+                    const Tab(text: 'Ajouter des membres'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _CurrentMembersView(
+                      members: _currentMembers,
+                      onRemove: _removeMember,
+                      isSaving: _isSaving,
+                    ),
+                    Column(
+                      children: [
+                        TextField(
+                          controller: _searchCtrl,
+                          onChanged: (value) => setState(() => _search = value),
+                          decoration: InputDecoration(
+                            hintText: 'Rechercher un utilisateur...',
+                            hintStyle: const TextStyle(
+                              color: Color(0xFF94A3B8),
+                              fontWeight: FontWeight.w500,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              size: 18,
+                              color: Color(0xFF64748B),
+                            ),
+                            filled: true,
+                            fillColor: const Color(0xFFF8FAFC),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 11),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFFDCE4EF)),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              borderSide:
+                                  const BorderSide(color: Color(0xFF93C5FD)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Expanded(
+                          child: _UsersList(
+                            users: _filteredAvailableUsers,
+                            onAdd: _addMember,
+                            isSaving: _isSaving,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MembersEmptyState extends StatelessWidget {
+  const _MembersEmptyState({
+    required this.hasMembers,
+    required this.associationName,
+    required this.membersCount,
+  });
+
+  final bool hasMembers;
+  final String associationName;
+  final int membersCount;
+
+  @override
+  Widget build(BuildContext context) {
+    if (hasMembers) {
+      return Center(
+        child: Text(
+          '$membersCount membres dans $associationName',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Color(0xFF475569),
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
+        ),
+      );
+    }
+
+    return const Center(
+      child: Text(
+        'Aucun membre pour le moment.',
+        style: TextStyle(
+          color: Color(0xFF7C8796),
+          fontWeight: FontWeight.w500,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+}
+
+class _CurrentMembersView extends StatelessWidget {
+  const _CurrentMembersView({
+    required this.members,
+    required this.onRemove,
+    required this.isSaving,
+  });
+
+  final List<UserOption> members;
+  final ValueChanged<UserOption> onRemove;
+  final bool isSaving;
+
+  @override
+  Widget build(BuildContext context) {
+    if (members.isEmpty) {
+      return const Center(
+        child: Text(
+          'Aucun membre pour le moment.',
+          style: TextStyle(
+            color: Color(0xFF7C8796),
+            fontWeight: FontWeight.w500,
+            fontSize: 13,
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.only(top: 2),
+      itemCount: members.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final user = members[index];
+        final initials = user.name.trim().isNotEmpty
+            ? user.name.trim().substring(0, 1).toUpperCase()
+            : 'U';
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFDCE4EF)),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: const Color(0xFFEAF2FF),
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    color: Color(0xFF1D4ED8),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      user.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (user.email.isNotEmpty)
+                      Text(
+                        user.email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF7C8796),
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton(
+                onPressed: isSaving ? null : () => onRemove(user),
+                tooltip: 'Retirer membre',
+                icon: const Icon(
+                  Icons.person_remove_alt_1_outlined,
+                  size: 18,
+                  color: Color(0xFF334155),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _UsersList extends StatelessWidget {
+  const _UsersList({
+    required this.users,
+    required this.onAdd,
+    required this.isSaving,
+  });
+
+  final List<UserOption> users;
+  final ValueChanged<UserOption> onAdd;
+  final bool isSaving;
+
+  @override
+  Widget build(BuildContext context) {
+    if (users.isEmpty) {
+      return const Center(
+        child: Text(
+          'Aucun utilisateur disponible.',
+          style: TextStyle(
+            color: Color(0xFF7C8796),
+            fontWeight: FontWeight.w500,
+            fontSize: 13,
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.only(top: 2),
+      itemCount: users.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final user = users[index];
+        final initials = user.name.trim().isNotEmpty
+            ? user.name.trim().substring(0, 1).toUpperCase()
+            : 'U';
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFDCE4EF)),
+          ),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: const Color(0xFFEAF2FF),
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    color: Color(0xFF1D4ED8),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      user.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF0F172A),
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (user.email.isNotEmpty)
+                      Text(
+                        user.email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF7C8796),
+                          fontSize: 12,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton(
+                onPressed: isSaving ? null : () => onAdd(user),
+                tooltip: 'Ajouter membre',
+                icon: const Icon(
+                  Icons.person_add_alt_1_rounded,
+                  size: 18,
+                  color: Color(0xFF111827),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

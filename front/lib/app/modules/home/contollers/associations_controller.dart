@@ -57,6 +57,19 @@ class AssociationsController extends GetxController {
     );
   }
 
+  Future<List<UserOption>> getAssociationMembers(String documentId) {
+    return _service.getAssociationMembers(documentId);
+  }
+
+  Future<String?> updateAssociationMembers(
+    String documentId,
+    List<int> memberIds,
+  ) async {
+    return _runMutation(
+      action: () => _service.updateAssociationMembers(documentId, memberIds),
+    );
+  }
+
   Future<String?> _runMutation({
     required Future<void> Function() action,
   }) async {
