@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 class TrainingSessionsApi {
   static const String _baseApiUrl = 'http://localhost:3001/api';
+  static const String _teacherRole = 'Enseignant';
 
   final AuthService _authService;
 
@@ -56,6 +57,24 @@ class TrainingSessionsApi {
       return const [];
     }
     return getSessionsByInstructorId(userId);
+  }
+
+  Future<List<TrainingSession>> getTeacherCourseSessions() async {
+    final endpoint =
+        '/training-sessions?filters[instructor][role][\$in]=$_teacherRole&populate=attendees&populate=course&sort=start_datetime:desc';
+    final response = await _get(endpoint);
+    final decoded = _decodeMap(response.body);
+    final data = decoded['data'];
+
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map((item) =>
+              TrainingSession.fromJson(Map<String, dynamic>.from(item)))
+          .toList();
+    }
+
+    return const [];
   }
 
   Future<TrainingSession> getSession(dynamic id) async {

@@ -9,6 +9,7 @@ const rateLimit = require('express-rate-limit');
 // Middleware
 const errorHandler = require('./middleware/errorHandler');
 const { requestLogger } = require('./middleware/logger');
+const { validate } = require('./middleware/validation');
 
 // Routes
 const authRoutes = require('./routes/auth.routes');
@@ -24,7 +25,13 @@ const enrollmentsRoutes = require('./routes/enrollments.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const reservationsRoutes = require('./routes/reservations.routes');
 const notificationsRoutes = require('./routes/notifications.routes');
+const communicationRoutes = require('./routes/communication.routes');
 const notificationsService = require('./services/notifications.service');
+const authController = require('./controllers/auth.controller');
+const {
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} = require('./validators/auth.validator');
 
 const app = express();
 const isDevelopment = (process.env.NODE_ENV || 'development') === 'development';
@@ -172,6 +179,8 @@ app.get('/api', (req, res) => {
 
 // ============ ROUTES ============
 app.use('/api/auth', loginLimiter, authRoutes);
+app.post('/api/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
+app.post('/api/reset-password', validate(resetPasswordSchema), authController.resetPassword);
 app.use('/api/users', usersRoutes);
 app.use('/api/spaces', spacesRoutes);
 app.use('/api/equipment-assets', equipmentRoutes);
@@ -186,6 +195,7 @@ app.use('/api/enrollments', enrollmentsRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/reservations', reservationsRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/communication', communicationRoutes);
 
 // ============ 404 HANDLER ============
 app.use((req, res) => {
@@ -203,6 +213,7 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 3001;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const REMINDER_INTERVAL_MS = 5 * 60 * 1000;
+const TRAINING_SESSION_START_INTERVAL_MS = 60 * 1000;
 
 app.listen(PORT, () => {
   console.log(`
@@ -239,8 +250,46 @@ app.listen(PORT, () => {
     }
   };
 
+  const runTrainingSessionStartPass = async () => {
+    try {
+      const result = await notificationsService.processDueTrainingSessionStarts();
+      console.log(
+        `[notifications] training session start pass sent=${result.created} matched=${result.sessionsMatched}`
+      );
+    } catch (error) {
+      console.error('[notifications] training session start job failed:', error.message);
+    }
+  };
+
+  const runTrainingSessionStartBackfill = async () => {
+    try {
+      const result = await notificationsService.backfillMissingTrainingSessionStarts(24);
+      console.log(
+        `[notifications] training session start backfill sent=${result.created} matched=${result.sessionsMatched}`
+      );
+    } catch (error) {
+      console.error('[notifications] training session start backfill failed:', error.message);
+    }
+  };
+
+  const runLegacyEnrollmentCleanup = async () => {
+    try {
+      const result = await notificationsService.cleanupLegacyStudentEnrollmentNotifications();
+      if (result.deleted > 0) {
+        console.log(`[notifications] legacy student enrollment notifications deleted=${result.deleted}`);
+      }
+    } catch (error) {
+      console.error('[notifications] legacy enrollment cleanup failed:', error.message);
+    }
+  };
+
+  setTimeout(runLegacyEnrollmentCleanup, 1500);
   setTimeout(runNotificationBackfill, 2000);
+  setTimeout(runTrainingSessionStartBackfill, 3000);
+  setTimeout(runTrainingSessionStartPass, 4000);
   setTimeout(runReminderPass, 8000);
+  setInterval(runTrainingSessionStartBackfill, 15 * 60 * 1000);
+  setInterval(runTrainingSessionStartPass, TRAINING_SESSION_START_INTERVAL_MS);
   setInterval(runReminderPass, REMINDER_INTERVAL_MS);
 });
 

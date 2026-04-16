@@ -1195,31 +1195,6 @@ class _AdminDashboard extends StatelessWidget {
   final double width;
   const _AdminDashboard({required this.controller, required this.width});
 
-  static const _stats = [
-    _StatData('Espaces Totaux', '24', '+2 ce mois', Icons.apartment_rounded,
-        Color(0xFF1F6FEB)),
-    _StatData('Réservations Actives', '156', '+12% vs mois dernier',
-        Icons.calendar_month_outlined, Color(0xFFF59E0B)),
-    _StatData('Cours Publiés', '18', '+4 ajoutés récemment',
-        Icons.menu_book_rounded, Color(0xFF16A34A)),
-    _StatData('Utilisateurs Actifs', '892', '+43 cette semaine',
-        Icons.groups_2_outlined, Color(0xFFA855F7)),
-  ];
-
-  static const _activities = [
-    _ActivityData('Bureau Premium', 'Alice Martin', '2026-01-28', 'Confirmé'),
-    _ActivityData('Salle de Réunion', 'Bob Durant', '2026-01-29', 'Confirmé'),
-    _ActivityData(
-        'Espace Coworking', 'Carol Smith', '2026-01-29', 'En attente'),
-    _ActivityData('Studio Privé', 'David Johnson', '2026-01-29', 'Confirmé'),
-  ];
-
-  static const _courses = [
-    _CourseData('Démarrage avec Next.js', 240, 4.8),
-    _CourseData('Design UI/UX', 412, 4.9),
-    _CourseData('Maîtriser TypeScript', 189, 4.7),
-  ];
-
   static const _quickActions = [
     _ActionData('Espaces', Icons.apartment_outlined, 3, Routes.SPACES),
     _ActionData('Utilisateurs', Icons.group_outlined, 5, Routes.USERS),
@@ -1230,17 +1205,89 @@ class _AdminDashboard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      _header(),
-      const SizedBox(height: 20),
-      _statsGrid(),
-      const SizedBox(height: 16),
-      _centerContent(),
-      const SizedBox(height: 16),
-      _quickActionsSection(),
-      const SizedBox(height: 16),
-      _bottomStats(),
-    ]);
+    return Obx(
+        () => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              _header(),
+              const SizedBox(height: 20),
+              _statsGrid(),
+              const SizedBox(height: 16),
+              _centerContent(),
+              const SizedBox(height: 16),
+              _quickActionsSection(),
+              const SizedBox(height: 16),
+              _bottomStats(),
+            ]));
+  }
+
+  List<_StatData> _stats() {
+    final s = controller.dashboardSummary.value;
+    return [
+      _StatData(
+        'Espaces Totaux',
+        '${s.totalSpaces}',
+        s.spacesSubtitle,
+        Icons.apartment_rounded,
+        const Color(0xFF1F6FEB),
+      ),
+      _StatData(
+        'Réservations Actives',
+        '${s.activeReservations}',
+        s.reservationsSubtitle,
+        Icons.calendar_month_outlined,
+        const Color(0xFFF59E0B),
+      ),
+      _StatData(
+        'Cours Publiés',
+        '${s.publishedCourses}',
+        s.coursesSubtitle,
+        Icons.menu_book_rounded,
+        const Color(0xFF16A34A),
+      ),
+      _StatData(
+        'Utilisateurs Actifs',
+        '${s.activeUsers}',
+        s.usersSubtitle,
+        Icons.groups_2_outlined,
+        const Color(0xFFA855F7),
+      ),
+    ];
+  }
+
+  List<_ActivityData> _activities() {
+    final rows = controller.dashboardActivities;
+    if (rows.isEmpty) {
+      return const [
+        _ActivityData('Aucune activité', '---', '--/--/----', 'En attente'),
+      ];
+    }
+    return rows
+        .map((row) => _ActivityData(
+              row['title'] ?? 'Reservation',
+              row['client'] ?? 'Utilisateur',
+              row['date'] ?? '--/--/----',
+              row['status'] ?? 'En attente',
+            ))
+        .toList();
+  }
+
+  List<_CourseData> _courses() {
+    final rows = controller.dashboardPopularCourses;
+    if (rows.isEmpty) {
+      return const [
+        _CourseData('Aucun cours disponible', 0, 0),
+      ];
+    }
+    return rows
+        .map((row) => _CourseData(
+              (row['title'] ?? 'Cours').toString(),
+              row['students'] is int
+                  ? row['students'] as int
+                  : int.tryParse('${row['students']}') ?? 0,
+              row['rating'] is num
+                  ? (row['rating'] as num).toDouble()
+                  : double.tryParse('${row['rating']}') ?? 0,
+            ))
+        .toList();
   }
 
   Widget _header() {
@@ -1266,6 +1313,31 @@ class _AdminDashboard extends StatelessWidget {
                   fontWeight: FontWeight.w500,
                   color: Color(0xFF334155))),
         ])),
+        if (controller.isDashboardLoading.value)
+          const Padding(
+            padding: EdgeInsets.only(right: 10),
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        SizedBox(
+          height: 38,
+          child: OutlinedButton.icon(
+            onPressed: controller.loadDashboardData,
+            icon: const Icon(Icons.refresh_rounded, size: 16),
+            label: const Text('Actualiser'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF334155),
+              side: const BorderSide(color: Color(0xFFD4DCE6)),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
         SizedBox(
           height: 38,
           child: ElevatedButton.icon(
@@ -1307,13 +1379,13 @@ class _AdminDashboard extends StatelessWidget {
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
           childAspectRatio: ratio),
-      itemCount: _stats.length,
+      itemCount: _stats().length,
       itemBuilder: (_, i) => StatCard(
-          title: _stats[i].title,
-          value: _stats[i].value,
-          subtitle: _stats[i].subtitle,
-          icon: _stats[i].icon,
-          iconColor: _stats[i].iconColor),
+          title: _stats()[i].title,
+          value: _stats()[i].value,
+          subtitle: _stats()[i].subtitle,
+          icon: _stats()[i].icon,
+          iconColor: _stats()[i].iconColor),
     );
   }
 
@@ -1367,13 +1439,13 @@ class _AdminDashboard extends StatelessWidget {
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: _activities.length,
+            itemCount: _activities().length,
             separatorBuilder: (_, __) => const Divider(height: 18),
             itemBuilder: (_, i) => ActivityItem(
-                title: _activities[i].title,
-                client: _activities[i].client,
-                date: _activities[i].date,
-                status: _activities[i].status),
+                title: _activities()[i].title,
+                client: _activities()[i].client,
+                date: _activities()[i].date,
+                status: _activities()[i].status),
           ),
         ]),
       ),
@@ -1434,7 +1506,7 @@ class _AdminDashboard extends StatelessWidget {
                   fontSize: 15,
                   color: Color(0xFF0F172A))),
           const SizedBox(height: 10),
-          ..._courses.map((c) => Padding(
+          ..._courses().map((c) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: Row(children: [
                   Container(
@@ -1513,21 +1585,22 @@ class _AdminDashboard extends StatelessWidget {
 
   Widget _bottomStats() {
     final stacked = width < 980;
-    const r = ProgressStatCard(
+    final s = controller.dashboardSummary.value;
+    final r = ProgressStatCard(
         title: 'Revenu du mois',
-        value: '8 432.50 DT',
-        deltaText: '+8.2%',
-        progressValue: 0.70,
-        progressColor: Color(0xFF22C55E),
-        helperText: 'Objectif: 12,000 DT',
+        value: s.monthlyRevenueLabel,
+        deltaText: 'Backend',
+        progressValue: s.occupancyProgress,
+        progressColor: const Color(0xFF22C55E),
+        helperText: 'Mis a jour en direct',
         icon: Icons.attach_money_rounded);
-    const o = ProgressStatCard(
+    final o = ProgressStatCard(
         title: "Taux d'occupation",
-        value: '87%',
-        deltaText: '+5.4%',
-        progressValue: 0.87,
-        progressColor: Color(0xFF2563EB),
-        helperText: 'Capacité: 156 / 180',
+        value: s.occupancyLabel,
+        deltaText: 'Backend',
+        progressValue: s.occupancyProgress,
+        progressColor: const Color(0xFF2563EB),
+        helperText: s.occupancyHelperText,
         icon: Icons.bar_chart_rounded);
     if (stacked) return Column(children: [r, const SizedBox(height: 10), o]);
     return Row(children: [

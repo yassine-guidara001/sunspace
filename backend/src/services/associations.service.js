@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
 const { NotFoundError, ValidationError, ConflictError } = require('../utils/errors');
+const { ROLES, hasAnyRole } = require('../utils/roles');
 
 const prisma = new PrismaClient();
 
@@ -43,7 +44,7 @@ class AssociationsService {
       id: user.id,
       username: user.username,
       email: user.email,
-      role: { name: user.role || 'USER' },
+      role: { name: user.role || ROLES.ETUDIANT },
       blocked: user.blocked,
       confirmed: user.confirmed,
       createdAt: user.createdAt,
@@ -307,7 +308,7 @@ class AssociationsService {
 
     // Authorization: Check if user is allowed to update this association
     const { userId, userRole, managerRoles = [] } = userContext;
-    const isManager = userRole && managerRoles.includes(userRole);
+    const isManager = hasAnyRole(userRole, managerRoles);
     
     if (!isManager && userId !== existing.adminId) {
       throw new Error('Vous n\'avez pas les droits pour modifier cette association');

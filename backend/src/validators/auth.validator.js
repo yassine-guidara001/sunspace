@@ -39,7 +39,54 @@ const registerSchema = Joi.object({
     }),
 }).unknown(false);
 
+const forgotPasswordSchema = Joi.object({
+  email: Joi.string().email().max(255).required().messages({
+    'string.empty': 'Email est requis',
+    'string.email': 'Email invalide',
+  }),
+}).unknown(false);
+
+const resetPasswordSchema = Joi.object({
+  token: Joi.string().min(20).max(255).required().messages({
+    'string.empty': 'Token de réinitialisation requis',
+    'string.min': 'Token de réinitialisation invalide',
+  }),
+  password: Joi.string().min(6).max(255).required().messages({
+    'string.empty': 'Nouveau mot de passe requis',
+    'string.min': 'Le mot de passe doit avoir au moins 6 caractères',
+  }),
+  confirmPassword: Joi.string()
+    .valid(Joi.ref('password'))
+    .required()
+    .messages({
+      'any.only': 'Les mots de passe ne correspondent pas',
+    }),
+}).unknown(false);
+
+/**
+ * Schéma de validation pour le changement de mot de passe
+ */
+const changePasswordSchema = Joi.object({
+  currentPassword: Joi.string().min(6).max(255).required().messages({
+    'string.empty': 'Mot de passe actuel est requis',
+    'string.min': 'Mot de passe actuel doit avoir au moins 6 caractères',
+  }),
+  newPassword: Joi.string().min(6).max(255).required().messages({
+    'string.empty': 'Nouveau mot de passe est requis',
+    'string.min': 'Nouveau mot de passe doit avoir au moins 6 caractères',
+  }),
+  confirmPassword: Joi.string()
+    .valid(Joi.ref('newPassword'))
+    .required()
+    .messages({
+      'any.only': 'Les mots de passe ne correspondent pas',
+    }),
+}).unknown(false);
+
 module.exports = {
   loginSchema,
   registerSchema,
+  changePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 };

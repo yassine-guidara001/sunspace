@@ -5,6 +5,7 @@ import 'package:flutter_getx_app/app/data/models/training_session_model.dart';
 import 'package:flutter_getx_app/app/data/services/courses_api.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/home_controller.dart';
 import 'package:flutter_getx_app/app/data/services/training_sessions_api.dart';
+import 'package:flutter_getx_app/app/widgets/delete_confirmation_dialog.dart';
 import 'package:get/get.dart';
 
 class TrainingSessionsController extends GetxController {
@@ -32,17 +33,23 @@ class TrainingSessionsController extends GetxController {
 
   int? get currentUserId => _authService.currentUserId;
 
-  List<TrainingSession> get studentAvailableSessions =>
-      sessions.where((session) => !_isCurrentUserParticipant(session)).toList();
+  /// Retourne les sessions qui ne sont pas expirées (date de fin > maintenant)
+  List<TrainingSession> get activeSessions =>
+      sessions.where(_isSessionActive).toList();
+
+  List<TrainingSession> get studentAvailableSessions => activeSessions
+      .where((session) => !_isCurrentUserParticipant(session))
+      .toList();
 
   List<TrainingSession> get studentMySessions =>
-      sessions.where(_isCurrentUserParticipant).toList();
+      activeSessions.where(_isCurrentUserParticipant).toList();
 
   List<TrainingSession> get filteredSessions {
     final q = searchQuery.value.trim().toLowerCase();
-    if (q.isEmpty) return sessions;
+    final active = activeSessions;
+    if (q.isEmpty) return active;
 
-    return sessions.where((session) {
+    return active.where((session) {
       final content = <String>[
         session.title,
         session.courseLabel,
@@ -279,24 +286,11 @@ class TrainingSessionsController extends GetxController {
   }
 
   Future<void> removeSession(TrainingSession session) async {
-    final bool confirmed = await Get.dialog<bool>(
-          AlertDialog(
-            title: const Text('Supprimer la session'),
-            content: Text('Voulez-vous supprimer "${session.title}" ?'),
-            actions: [
-              TextButton(
-                onPressed: () => Get.back(result: false),
-                child: const Text('Annuler'),
-              ),
-              ElevatedButton(
-                onPressed: () => Get.back(result: true),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text('Supprimer'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+    final bool confirmed = await showDeleteConfirmationDialog(
+      title: 'Supprimer la session',
+      itemName: session.title,
+      description: 'La session sera supprimée définitivement du système.',
+    );
 
     if (!confirmed) return;
 
@@ -343,6 +337,14 @@ class TrainingSessionsController extends GetxController {
     final userId = currentUserId;
     if (userId == null) return false;
     return session.participants.any((participant) => participant.id == userId);
+  }
+
+  /// Vérifie si une session est active (non expirée)
+  bool _isSessionActive(TrainingSession session) {
+    final endDate = session.endDate;
+    if (endDate == null)
+      return true; // Pas de date de fin = session toujours active
+    return endDate.isAfter(DateTime.now());
   }
 
   void _replaceSession(TrainingSession updated) {

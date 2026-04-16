@@ -3,7 +3,13 @@ const router = express.Router();
 const authController = require('../controllers/auth.controller');
 const { validate } = require('../middleware/validation');
 const { authMiddleware } = require('../middleware/auth');
-const { loginSchema, registerSchema } = require('../validators/auth.validator');
+const {
+  loginSchema,
+  registerSchema,
+  changePasswordSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
+} = require('../validators/auth.validator');
 
 /**
  * Routes d'authentification
@@ -35,6 +41,28 @@ router.post(
   '/logout',
   authMiddleware,
   authController.logout
+);
+
+// 🔐 POST /api/auth/change-password - Changer le mot de passe
+router.post(
+  '/change-password',
+  authMiddleware,
+  validate(changePasswordSchema),
+  authController.changePassword
+);
+
+// 🔐 POST /api/auth/forgot-password - Demander un reset
+router.post(
+  '/forgot-password',
+  validate(forgotPasswordSchema),
+  authController.forgotPassword
+);
+
+// 🔐 POST /api/auth/reset-password - Réinitialiser le mot de passe
+router.post(
+  '/reset-password',
+  validate(resetPasswordSchema),
+  authController.resetPassword
 );
 
 module.exports = router;

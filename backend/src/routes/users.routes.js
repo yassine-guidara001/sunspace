@@ -4,6 +4,7 @@ const usersController = require('../controllers/users.controller');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 const { createUserSchema, updateUserSchema } = require('../validators/users.validator');
+const { ROLES } = require('../utils/roles');
 
 /**
  * Routes des utilisateurs
@@ -13,7 +14,7 @@ const { createUserSchema, updateUserSchema } = require('../validators/users.vali
 router.get(
   '/',
   authMiddleware,
-  requireRole('ADMIN', 'TEACHERDIRECTOR'),
+  requireRole(ROLES.ADMIN, ROLES.ENSEIGNANT),
   usersController.getAllUsers
 );
 
@@ -21,7 +22,7 @@ router.get(
 router.post(
   '/',
   authMiddleware,
-  requireRole('ADMIN', 'TEACHERDIRECTOR'),
+  requireRole(ROLES.ADMIN, ROLES.ENSEIGNANT),
   validate(createUserSchema),
   usersController.createUser
 );
@@ -52,7 +53,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
-  requireRole('ADMIN'),
+  requireRole(ROLES.ADMIN),
   usersController.deleteUser
 );
 

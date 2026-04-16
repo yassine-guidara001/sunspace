@@ -148,14 +148,32 @@ class EquipmentModel {
   final String id;
   final String name;
   final double price; // = price_per_day
+  final List<String> spaceIds;
 
   const EquipmentModel({
     required this.id,
     required this.name,
     required this.price,
+    this.spaceIds = const [],
   });
 
   factory EquipmentModel.fromJson(Map<String, dynamic> json) {
+    final spacesRaw = json['spaces'];
+    final parsedSpaceIds = <String>[];
+    if (spacesRaw is List) {
+      for (final item in spacesRaw) {
+        if (item is Map) {
+          final rawId = item['id'];
+          if (rawId != null) {
+            final idText = rawId.toString().trim();
+            if (idText.isNotEmpty) {
+              parsedSpaceIds.add(idText);
+            }
+          }
+        }
+      }
+    }
+
     // Strapi v5 flat — champ prix = price_per_day
     return EquipmentModel(
       id: json['id']?.toString() ?? '',
@@ -165,6 +183,7 @@ class EquipmentModel {
               json['pricePerSession'] ??
               0)
           .toDouble(),
+      spaceIds: parsedSpaceIds,
     );
   }
 }

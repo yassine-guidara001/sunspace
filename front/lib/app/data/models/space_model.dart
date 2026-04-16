@@ -89,7 +89,7 @@ class Space {
   static DateTime? _toDateTime(dynamic v) {
     if (v == null) return null;
     if (v is DateTime) return v;
-    return DateTime.tryParse(v.toString());
+    return DateTime.tryParse(v.toString())?.toLocal();
   }
 
   /// Extrait le texte brut depuis un champ description Strapi v5 (rich text ou string).

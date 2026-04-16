@@ -1,6 +1,7 @@
 const { verifyToken, extractTokenFromHeaders } = require('../utils/jwt');
 const { AuthenticationError, AuthorizationError } = require('../utils/errors');
 const { sendError } = require('../utils/response');
+const { hasAnyRole, normalizeAllowedRoles } = require('../utils/roles');
 
 /**
  * Middleware d'authentification JWT
@@ -35,14 +36,12 @@ const requireRole = (...allowedRoles) => {
         throw new AuthenticationError('Authentification requise');
       }
 
-      // Normaliser les rôles pour la comparaison (insensible à la casse)
-      const userRole = req.user.role || '';
-      const normalizedUserRole = userRole.toUpperCase();
-      const normalizedAllowedRoles = allowedRoles.map(r => r.toUpperCase());
+      const userRole = req.user.role;
+      const normalizedAllowedRoles = normalizeAllowedRoles(allowedRoles);
 
-      if (!normalizedAllowedRoles.includes(normalizedUserRole)) {
+      if (!hasAnyRole(userRole, normalizedAllowedRoles)) {
         throw new AuthorizationError(
-          `Rôle requis: ${allowedRoles.join(' ou ')}`
+          `Rôle requis: ${normalizedAllowedRoles.join(' ou ')}`
         );
       }
 

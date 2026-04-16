@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_getx_app/app/core/service/auth_service.dart';
@@ -34,6 +35,8 @@ class StudentSpacePaymentView extends StatefulWidget {
 
 class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
   static const String _baseUrl = 'http://localhost:3001/api';
+  static const int _openingHour = 9;
+  static const int _closingHour = 18;
 
   final _cardHolderController = TextEditingController();
   final _cardNumberController = TextEditingController();
@@ -85,10 +88,6 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
   Future<void> _pay() async {
     setState(() => _isLoading = true);
     try {
-      final dateStr = widget.startDate.toIso8601String().split('T').first;
-      final h = widget.startTime.hour.toString().padLeft(2, '0');
-      final m = widget.startTime.minute.toString().padLeft(2, '0');
-
       final startDateTime = DateTime(
         widget.startDate.year,
         widget.startDate.month,
@@ -111,10 +110,13 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
             : startDateTime.add(const Duration(hours: 1));
       }
 
-      final endDt = endDateTime
-          .toIso8601String()
-          .replaceFirst(RegExp(r'\.\d+Z?$'), '.000');
-      final localStartDt = '${dateStr}T$h:$m:00.000';
+      if (!_isWithinOpeningHours(startDateTime) ||
+          !_isWithinOpeningHours(endDateTime)) {
+        throw Exception('Cet espace est ouvert uniquement de 09:00 à 18:00');
+      }
+
+      final localStartDt = _toLocalApiDateTime(startDateTime);
+      final endDt = _toLocalApiDateTime(endDateTime);
 
       final payload = {
         'data': {
@@ -167,9 +169,64 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
     }
   }
 
+  bool _isWithinOpeningHours(DateTime value) {
+    final minutes = value.hour * 60 + value.minute;
+    return minutes >= _openingHour * 60 && minutes <= _closingHour * 60;
+  }
+
+  DateTime get _startDateTime => DateTime(
+        widget.startDate.year,
+        widget.startDate.month,
+        widget.startDate.day,
+        widget.startTime.hour,
+        widget.startTime.minute,
+      );
+
+  DateTime get _endDateTimeRaw => DateTime(
+        widget.endDate.year,
+        widget.endDate.month,
+        widget.endDate.day,
+        widget.endTime.hour,
+        widget.endTime.minute,
+      );
+
+  DateTime get _effectiveEndDateTime {
+    final start = _startDateTime;
+    final rawEnd = _endDateTimeRaw;
+    if (rawEnd.isAfter(start)) return rawEnd;
+    return widget.plan == 'monthly'
+        ? start.add(const Duration(days: 30))
+        : start.add(const Duration(hours: 1));
+  }
+
+  Duration get _reservationDuration =>
+      _effectiveEndDateTime.difference(_startDateTime);
+
+  int get _hourlyUnits {
+    final minutes = _reservationDuration.inMinutes;
+    if (minutes <= 0) return 1;
+    return math.max(1, (minutes / 60).ceil());
+  }
+
+  String get _durationLabel {
+    if (widget.plan == 'monthly') {
+      return '30 Jours';
+    }
+    return _hourlyUnits == 1 ? '1 Heure' : '$_hourlyUnits Heures';
+  }
+
+  String _toLocalApiDateTime(DateTime value) {
+    final yyyy = value.year.toString().padLeft(4, '0');
+    final mm = value.month.toString().padLeft(2, '0');
+    final dd = value.day.toString().padLeft(2, '0');
+    final hh = value.hour.toString().padLeft(2, '0');
+    final min = value.minute.toString().padLeft(2, '0');
+    return '$yyyy-$mm-${dd}T$hh:$min:00.000';
+  }
+
   double get _price => widget.plan == 'monthly'
       ? widget.space.monthlyRate
-      : widget.space.hourlyRate;
+      : widget.space.hourlyRate * _hourlyUnits;
 
   String get _priceLabel {
     final code = widget.space.currency.trim().toUpperCase() == 'TND'
@@ -511,10 +568,12 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
                 ? 'Abonnement Mensuel'
                 : 'Réservation Ponctuelle'),
         const SizedBox(height: 10),
-        _detailRow(
-            'Durée :', widget.plan == 'monthly' ? '30 Jours' : '1 Heure'),
+        _detailRow('Durée :', _durationLabel),
         const SizedBox(height: 10),
-        _detailRow('Début :', _formatDate(widget.startDate)),
+        _detailRow(
+          'Début :',
+          '${_formatDate(widget.startDate)} ${_formatTime(widget.startTime)}',
+        ),
         const SizedBox(height: 14),
         const Divider(height: 1, color: Color(0xFFE2E8F0)),
         const SizedBox(height: 12),
@@ -653,6 +712,12 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
       'déc'
     ];
     return '${date.day.toString().padLeft(2, '0')} ${months[date.month - 1]} ${date.year}';
+  }
+
+  String _formatTime(TimeOfDay time) {
+    final hour = time.hour.toString().padLeft(2, '0');
+    final minute = time.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }
 

@@ -57,7 +57,13 @@ class CoursesService {
     const instructorIdFromNested =
       query?.filters?.instructor?.id?.$eq ?? query?.filters?.instructorId?.$eq;
     const instructorId = this._toInt(instructorIdFromFlat ?? instructorIdFromNested);
-    return { id, instructorId };
+    const instructorRolesRaw = String(
+      query?.['filters[instructor][role][$in]'] ?? query?.filters?.instructor?.role?.$in ?? ''
+    ).trim();
+    const instructorRoles = instructorRolesRaw
+      ? instructorRolesRaw.split(',').map((role) => role.trim()).filter(Boolean)
+      : [];
+    return { id, instructorId, instructorRoles };
   }
 
   _mapCourse(course) {
@@ -95,7 +101,7 @@ class CoursesService {
   }
 
   async getAllCourses(query = {}) {
-    const { id, instructorId } = this._extractFilters(query);
+    const { id, instructorId, instructorRoles } = this._extractFilters(query);
 
     const where = {};
     if (id !== null) {
@@ -104,6 +110,16 @@ class CoursesService {
 
     if (instructorId !== null) {
       where.instructorId = instructorId;
+    }
+
+    if (instructorRoles.length) {
+      where.instructor = {
+        is: {
+          role: {
+            in: instructorRoles,
+          },
+        },
+      };
     }
 
     const courses = await prisma.course.findMany({

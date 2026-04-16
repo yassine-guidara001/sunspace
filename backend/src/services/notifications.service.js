@@ -2,6 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const { NotFoundError, ValidationError } = require('../utils/errors');
 
 const prisma = new PrismaClient();
+const trainingSessionStartTimers = new Map();
 
 class NotificationsService {
   _buildReminderWindow(hoursBeforeEvent, driftMinutes = 5) {
@@ -11,6 +12,60 @@ class NotificationsService {
       start: new Date(target - (driftMinutes * 60 * 1000)),
       end: new Date(target + (driftMinutes * 60 * 1000)),
     };
+  }
+  
+  _buildSessionStartWindow(driftMinutes = 5) {
+    const now = new Date();
+    return {
+      start: new Date(now.getTime() - (driftMinutes * 60 * 1000)),
+      end: new Date(now.getTime() + (driftMinutes * 60 * 1000)),
+    };
+  }
+
+  scheduleTrainingSessionStartNotification(sessionId, startDate) {
+    if (!sessionId || !startDate) return;
+
+    const existingTimer = trainingSessionStartTimers.get(sessionId);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      trainingSessionStartTimers.delete(sessionId);
+    }
+
+    const targetDate = startDate instanceof Date ? startDate : new Date(startDate);
+    if (Number.isNaN(targetDate.getTime())) return;
+
+    const delay = Math.max(0, targetDate.getTime() - Date.now());
+
+    const timer = setTimeout(async () => {
+      trainingSessionStartTimers.delete(sessionId);
+
+      try {
+        await this.notifyTrainingSessionStarted(sessionId);
+      } catch (error) {
+        console.error('Failed to deliver scheduled training session start notification:', error.message);
+      }
+    }, delay);
+
+    trainingSessionStartTimers.set(sessionId, timer);
+  }
+
+  clearTrainingSessionStartNotification(sessionId) {
+    const existingTimer = trainingSessionStartTimers.get(sessionId);
+    if (!existingTimer) return;
+
+    clearTimeout(existingTimer);
+    trainingSessionStartTimers.delete(sessionId);
+  }
+
+  async cleanupLegacyStudentEnrollmentNotifications() {
+    const result = await prisma.notification.deleteMany({
+      where: {
+        type: 'TEACHER_MESSAGE',
+        title: '✅ Inscription confirmée',
+      },
+    });
+
+    return { deleted: result.count };
   }
 
   /**
@@ -458,6 +513,19 @@ class NotificationsService {
       const notifications = [];
 
       for (const userId of attendeeIds) {
+        const existingNotification = await prisma.notification.findFirst({
+          where: {
+            userId,
+            sessionId,
+            type: 'TRAINING_SESSION_STARTED',
+          },
+          select: { id: true },
+        });
+
+        if (existingNotification) {
+          continue;
+        }
+
         const notification = await this.createNotification({
           userId,
           type: 'TRAINING_SESSION_STARTED',
@@ -478,6 +546,179 @@ class NotificationsService {
     } catch (error) {
       throw error;
     }
+  }
+
+  async notifyTrainingSessionEnrollment(attendeeId, sessionId) {
+    try {
+      const session = await prisma.trainingSession.findUnique({
+        where: { id: sessionId },
+        include: {
+          course: true,
+          instructor: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+            },
+          },
+          attendees: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!session) {
+        throw new NotFoundError('Session non trouvée');
+      }
+
+      const instructorId = session.instructor?.id;
+      if (!instructorId) {
+        return null;
+      }
+
+      const attendee = session.attendees
+        .map((item) => item.user)
+        .find((user) => user?.id === attendeeId);
+
+      const attendeeLabel = attendee?.username || attendee?.email || `#${attendeeId}`;
+
+      // Nettoie l'ancienne notification envoyée par erreur à l'étudiant.
+      await prisma.notification.deleteMany({
+        where: {
+          userId: attendeeId,
+          sessionId,
+          type: 'TEACHER_MESSAGE',
+          title: '✅ Inscription confirmée',
+        },
+      });
+
+      const existingNotification = await prisma.notification.findFirst({
+        where: {
+          userId: instructorId,
+          sessionId,
+          type: 'TEACHER_MESSAGE',
+          title: '🧑‍🎓 Nouvelle inscription à une session',
+          body: `L\'étudiant ${attendeeLabel} s\'est inscrit à "${session.title}".`,
+        },
+        select: { id: true },
+      });
+
+      if (existingNotification) {
+        return existingNotification;
+      }
+
+      return await this.createNotification({
+        userId: instructorId,
+        type: 'TEACHER_MESSAGE',
+        title: '🧑‍🎓 Nouvelle inscription à une session',
+        body: `L'étudiant ${attendeeLabel} s'est inscrit à "${session.title}".`,
+        sessionId,
+        notificationData: {
+          sessionId,
+          title: session.title,
+          attendeeId,
+          attendeeLabel,
+          instructorId,
+          courseName: session.course?.title,
+          startDate: session.startDate,
+          event: 'TRAINING_SESSION_ENROLLMENT',
+        },
+      });
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async processDueTrainingSessionStarts() {
+    const window = this._buildSessionStartWindow(5);
+
+    const sessions = await prisma.trainingSession.findMany({
+      where: {
+        startDate: {
+          gte: window.start,
+          lte: window.end,
+        },
+        mystatus: {
+          notIn: ['Annulée', 'Terminée'],
+        },
+      },
+      select: { id: true },
+    });
+
+    let created = 0;
+
+    for (const session of sessions) {
+      const alreadySent = await prisma.notification.findFirst({
+        where: {
+          sessionId: session.id,
+          type: 'TRAINING_SESSION_STARTED',
+        },
+        select: { id: true },
+      });
+
+      if (alreadySent) {
+        continue;
+      }
+
+      const sentNotifications = await this.notifyTrainingSessionStarted(session.id);
+      created += sentNotifications.length;
+    }
+
+    return {
+      created,
+      sessionsMatched: sessions.length,
+    };
+  }
+
+  async backfillMissingTrainingSessionStarts(hoursBack = 24) {
+    const now = new Date();
+    const since = new Date(now.getTime() - (hoursBack * 60 * 60 * 1000));
+
+    const sessions = await prisma.trainingSession.findMany({
+      where: {
+        startDate: {
+          gte: since,
+          lte: now,
+        },
+        mystatus: {
+          notIn: ['Annulée', 'Terminée'],
+        },
+      },
+      select: { id: true },
+    });
+
+    let created = 0;
+
+    for (const session of sessions) {
+      const alreadySent = await prisma.notification.findFirst({
+        where: {
+          sessionId: session.id,
+          type: 'TRAINING_SESSION_STARTED',
+        },
+        select: { id: true },
+      });
+
+      if (alreadySent) {
+        continue;
+      }
+
+      const sentNotifications = await this.notifyTrainingSessionStarted(session.id);
+      created += sentNotifications.length;
+    }
+
+    return {
+      created,
+      sessionsMatched: sessions.length,
+      hoursBack,
+    };
   }
 
   async processDueReservationReminders() {

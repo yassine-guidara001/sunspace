@@ -1594,7 +1594,8 @@ class _CommunicationViewState extends State<CommunicationView>
                       final threadStatus =
                           (thread['status'] ?? 'OPEN').toString().toUpperCase();
                       final threadDate = DateTime.tryParse(
-                          thread['createdAt']?.toString() ?? '');
+                              thread['createdAt']?.toString() ?? '')
+                          ?.toLocal();
 
                       return Container(
                         padding: const EdgeInsets.all(14),
@@ -1750,7 +1751,8 @@ class _CommunicationViewState extends State<CommunicationView>
                                   final validatedBy = reply['validatedBy']
                                       as Map<String, dynamic>?;
                                   final createdAt = DateTime.tryParse(
-                                      reply['createdAt']?.toString() ?? '');
+                                          reply['createdAt']?.toString() ?? '')
+                                      ?.toLocal();
                                   final likeCount =
                                       (reply['likeCount'] as num?)?.toInt() ??
                                           0;

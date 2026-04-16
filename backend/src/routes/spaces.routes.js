@@ -3,6 +3,7 @@ const spacesController = require('../controllers/spaces.controller');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 const { createSpaceSchema, updateSpaceSchema } = require('../validators/spaces.validator');
+const { ROLES } = require('../utils/roles');
 
 const router = express.Router();
 
@@ -24,7 +25,7 @@ router.get('/:id', authMiddleware, spacesController.getSpaceById);
 router.post(
   '/',
   authMiddleware,
-  requireRole('ADMIN', 'TEACHERDIRECTOR', 'Admin', 'Gestionnaire d\'espace'),
+  requireRole(ROLES.ADMIN, ROLES.ENSEIGNANT, ROLES.GESTIONNAIRE_ESPACE),
   validate(createSpaceSchema),
   spacesController.createSpace
 );
@@ -33,7 +34,7 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
-  requireRole('ADMIN', 'TEACHERDIRECTOR', 'Admin', 'Gestionnaire d\'espace'),
+  requireRole(ROLES.ADMIN, ROLES.ENSEIGNANT, ROLES.GESTIONNAIRE_ESPACE),
   validate(updateSpaceSchema),
   spacesController.updateSpace
 );
@@ -42,7 +43,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
-  requireRole('ADMIN', 'Admin'),
+  requireRole(ROLES.ADMIN),
   spacesController.deleteSpace
 );
 

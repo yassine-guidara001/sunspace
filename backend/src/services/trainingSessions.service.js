@@ -81,7 +81,13 @@ class TrainingSessionsService {
       ? (sortRaw.endsWith(':asc') ? 'asc' : 'desc')
       : null;
 
-    return { instructorId, instructorRoles, attendeeId, statusContains, startDateSort };
+    return {
+      instructorId,
+      instructorRoles,
+      attendeeId,
+      statusContains,
+      startDateSort,
+    };
   }
 
   _mapParticipant(user) {
@@ -184,7 +190,13 @@ class TrainingSessionsService {
   }
 
   async getSessions(query = {}) {
-    const { instructorId, instructorRoles, attendeeId, statusContains, startDateSort } = this._extractFilters(query);
+    const {
+      instructorId,
+      instructorRoles,
+      attendeeId,
+      statusContains,
+      startDateSort,
+    } = this._extractFilters(query);
 
     const where = {};
     if (instructorId) {
@@ -287,6 +299,18 @@ class TrainingSessionsService {
       } catch (error) {
         console.error('Failed to send training session start notification:', error.message);
       }
+    } else if (created.startDate && attendeeIds.length > 0) {
+      notificationsService.scheduleTrainingSessionStartNotification(created.id, created.startDate);
+    }
+
+    if (attendeeIds.length > 0) {
+      for (const attendeeId of attendeeIds) {
+        try {
+          await notificationsService.notifyTrainingSessionEnrollment(attendeeId, created.id);
+        } catch (error) {
+          console.error('Failed to send training session enrollment notification:', error.message);
+        }
+      }
     }
 
     return this._toItem(created);
@@ -296,7 +320,14 @@ class TrainingSessionsService {
     const id = this._parseId(rawId);
     const payload = this._extractPayload(body);
 
-    const existing = await prisma.trainingSession.findUnique({ where: { id } });
+    const existing = await prisma.trainingSession.findUnique({
+      where: { id },
+      include: {
+        attendees: {
+          select: { userId: true },
+        },
+      },
+    });
     if (!existing) {
       throw new NotFoundError('Session non trouvée');
     }
@@ -347,6 +378,10 @@ class TrainingSessionsService {
     }
 
     const attendeeIds = payload.attendees !== undefined ? this._toIntArray(payload.attendees) : null;
+    const existingAttendeeIds = existing.attendees.map((item) => item.userId);
+    const addedAttendeeIds = attendeeIds !== null
+      ? attendeeIds.filter((userId) => !existingAttendeeIds.includes(userId))
+      : [];
 
     const updated = await prisma.trainingSession.update({
       where: { id },
@@ -370,6 +405,18 @@ class TrainingSessionsService {
       } catch (error) {
         console.error('Failed to send training session start notification:', error.message);
       }
+    } else if (updated.startDate && updated.attendees.length > 0) {
+      notificationsService.scheduleTrainingSessionStartNotification(updated.id, updated.startDate);
+    }
+
+    if (addedAttendeeIds.length > 0) {
+      for (const attendeeId of addedAttendeeIds) {
+        try {
+          await notificationsService.notifyTrainingSessionEnrollment(attendeeId, updated.id);
+        } catch (error) {
+          console.error('Failed to send training session enrollment notification:', error.message);
+        }
+      }
     }
 
     return this._toItem(updated);
@@ -382,6 +429,8 @@ class TrainingSessionsService {
     if (!existing) {
       throw new NotFoundError('Session non trouvée');
     }
+
+    notificationsService.clearTrainingSessionStartNotification(id);
 
     await prisma.trainingSession.delete({
       where: { id },

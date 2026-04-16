@@ -27,8 +27,9 @@ class User {
       role: parsedRole,
       confirmed: json['confirmed'] == true,
       blocked: json['blocked'] == true,
-      createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()) ??
-          DateTime.now(),
+      createdAt:
+          DateTime.tryParse((json['createdAt'] ?? '').toString())?.toLocal() ??
+              DateTime.now(),
     );
   }
 

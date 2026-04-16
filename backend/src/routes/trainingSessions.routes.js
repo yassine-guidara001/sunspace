@@ -1,10 +1,11 @@
 const express = require('express');
 const trainingSessionsController = require('../controllers/trainingSessions.controller');
 const { authMiddleware, requireRole } = require('../middleware/auth');
+const { MANAGER_ROLES } = require('../utils/roles');
 
 const router = express.Router();
 
-const managerRoles = ['ADMIN', 'TEACHERDIRECTOR', 'Admin', 'Enseignant', 'Professionnel', 'Association'];
+const managerRoles = MANAGER_ROLES;
 
 // GET /api/training-sessions
 router.get('/', authMiddleware, trainingSessionsController.getAll);
@@ -24,6 +25,7 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
+  requireRole(...managerRoles),
   trainingSessionsController.update
 );
 

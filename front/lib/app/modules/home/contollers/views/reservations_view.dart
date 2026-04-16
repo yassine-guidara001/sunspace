@@ -483,7 +483,7 @@ class ReservationsView extends GetView<ReservationsController> {
         Expanded(
           flex: 3,
           child: Text(
-            DateFormat('dd MMM yyyy • HH:mm', 'fr').format(r.dateTime),
+            _formatDateTimeRange(r.dateTime, r.endDateTime),
             style: const TextStyle(
                 fontSize: 12,
                 color: Color(0xFF475569),
@@ -687,6 +687,16 @@ class ReservationsView extends GetView<ReservationsController> {
         ),
       ),
     );
+  }
+
+  String _formatDateTimeRange(DateTime start, DateTime? end) {
+    final date = DateFormat('dd MMM yyyy', 'fr').format(start);
+    final startHour = DateFormat('HH:mm').format(start);
+    if (end == null) {
+      return '$date • $startHour';
+    }
+    final endHour = DateFormat('HH:mm').format(end);
+    return '$date • $startHour - $endHour';
   }
 }
 

@@ -1,6 +1,7 @@
 const { PrismaClient } = require('@prisma/client');
 const bcryptjs = require('bcryptjs');
 const { NotFoundError, ConflictError, ValidationError } = require('../utils/errors');
+const { ROLES, normalizeRole } = require('../utils/roles');
 
 const prisma = new PrismaClient();
 
@@ -57,21 +58,15 @@ class UsersService {
    * Créer un nouvel utilisateur
    */
   async createUser(data) {
-    let { username, email, password, role = 'USER', confirmed = true, blocked = false } = data;
+    let { username, email, password, role = ROLES.ETUDIANT, confirmed = true, blocked = false } = data;
 
     // Validation
     if (!username || !email) {
       throw new ValidationError('username et email sont requis');
     }
 
-    // Nettoyer et valider le rôle - accepter anciens et nouveaux rôles
-    const validRoles = ['Authenticated', 'Public', 'SUPER_ADMIN', 'Etudiant', 'Enseignant', "Gestionnaire d'espace", 'Admin', 'Professionnel', 'Association', 'USER'];
-    const cleanRole = (role || '')?.toString().trim();
-    if (!cleanRole || !validRoles.includes(cleanRole)) {
-      role = 'USER'; // Défaut si invalide ou vide
-    } else {
-      role = cleanRole;
-    }
+    const normalizedRole = normalizeRole(role);
+    role = normalizedRole || ROLES.ETUDIANT;
 
     // Identifier si omission password et utiliser un mot de passe par défaut
     let finalPassword = password;
@@ -150,14 +145,7 @@ class UsersService {
 
     // Valider et nettoyer le rôle si fourni
     if (role) {
-      const validRoles = ['Authenticated', 'Public', 'SUPER_ADMIN', 'Etudiant', 'Enseignant', "Gestionnaire d'espace", 'Admin', 'Professionnel', 'Association', 'USER'];
-      const cleanRole = (role || '')?.toString().trim();
-      if (!cleanRole || !validRoles.includes(cleanRole)) {
-        // Garder le rôle existant si invalide
-        role = undefined;
-      } else {
-        role = cleanRole;
-      }
+      role = normalizeRole(role) || undefined;
     }
 
     // Construire les données à mettre à jour

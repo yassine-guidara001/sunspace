@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_getx_app/app/data/models/teacher_student_model.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/teacher_students_controller.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/custom_sidebar.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/dashboard_topbar.dart';
@@ -12,9 +13,12 @@ class TeacherStudentsView extends GetView<TeacherStudentsController> {
   static const Color _muted = Color(0xFF64748B);
   static const Color _title = Color(0xFF0F172A);
   static const Color _primary = Color(0xFF1664FF);
+  static const Color _headerBg = Color(0xFFEFF3FA);
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 920;
+
     return Scaffold(
       backgroundColor: _pageBg,
       body: Row(
@@ -26,36 +30,92 @@ class TeacherStudentsView extends GetView<TeacherStudentsController> {
                 const DashboardTopBar(),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(isCompact ? 16 : 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.school_outlined,
+                            const Icon(Icons.school_outlined,
                                 color: _primary, size: 30),
-                            SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Mes Etudiants',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: _title,
-                                    height: 1.0,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Mes Etudiants',
+                                    style: TextStyle(
+                                      fontSize: isCompact ? 32 : 38,
+                                      fontWeight: FontWeight.w800,
+                                      color: _title,
+                                      height: 1.05,
+                                    ),
                                   ),
-                                ),
-                                SizedBox(height: 4),
-                                Text(
-                                  'Suivez la progression de vos apprenants',
-                                  style: TextStyle(color: _muted),
-                                ),
-                              ],
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Suivez la progression de vos apprenants',
+                                    style: TextStyle(color: _muted),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 14),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: _headerBg,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _border),
+                          ),
+                          child: SizedBox(
+                            height: 40,
+                            child: TextField(
+                              onChanged: controller.updateSearch,
+                              decoration: InputDecoration(
+                                hintText: 'Rechercher un etudiant...',
+                                hintStyle: const TextStyle(
+                                  color: Color(0xFF94A3B8),
+                                  fontSize: 13,
+                                ),
+                                prefixIcon: const Icon(
+                                  Icons.search,
+                                  size: 18,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                                isDense: true,
+                                filled: true,
+                                fillColor: Colors.white,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                    color: _border,
+                                  ),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                    color: _border,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  borderSide: const BorderSide(
+                                    color: _primary,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         Expanded(
                           child: Obx(() {
                             if (controller.isLoading.value) {
@@ -76,6 +136,10 @@ class TeacherStudentsView extends GetView<TeacherStudentsController> {
                               return const _EmptyCard();
                             }
 
+                            if (isCompact) {
+                              return _buildCompactStudentsList(rows);
+                            }
+
                             return Container(
                               width: double.infinity,
                               decoration: BoxDecoration(
@@ -90,6 +154,7 @@ class TeacherStudentsView extends GetView<TeacherStudentsController> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 12),
                                     decoration: const BoxDecoration(
+                                      color: Color(0xFFF8FAFC),
                                       border: Border(
                                         bottom: BorderSide(color: _border),
                                       ),
@@ -211,6 +276,65 @@ class TeacherStudentsView extends GetView<TeacherStudentsController> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCompactStudentsList(List<TeacherStudentModel> rows) {
+    return ListView.separated(
+      itemCount: rows.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (_, index) {
+        final row = rows[index];
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: _border),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                row.studentName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: _title,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                row.studentEmail,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: _muted),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 14,
+                runSpacing: 8,
+                children: [
+                  Text(
+                    'Cours: ${row.courseName}',
+                    style: const TextStyle(color: _title),
+                  ),
+                  Text(
+                    'Progression: ${row.progressPercent}%',
+                    style: const TextStyle(color: _title),
+                  ),
+                  Text(
+                    'Inscription: ${_formatDate(row.enrolledAt)}',
+                    style: const TextStyle(color: _muted),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

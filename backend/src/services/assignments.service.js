@@ -38,6 +38,52 @@ class AssignmentsService {
     return date;
   }
 
+  _normalizeDescription(value) {
+    if (value === undefined || value === null) return null;
+
+    if (Array.isArray(value)) {
+      const chunks = [];
+
+      for (const block of value) {
+        if (!block || typeof block !== 'object') continue;
+        const children = Array.isArray(block.children) ? block.children : [];
+        for (const child of children) {
+          if (!child || typeof child !== 'object') continue;
+          const text = String(child.text || '').trim();
+          if (text) chunks.push(text);
+        }
+      }
+
+      const merged = chunks.join('\n').trim();
+      return merged || null;
+    }
+
+    if (typeof value === 'object') {
+      const text = String(value.text || '').trim();
+      return text || null;
+    }
+
+    const text = String(value).trim();
+    return text || null;
+  }
+
+  _resolveCourseId(payload = {}) {
+    const directCourseId = this._toInt(payload.courseId ?? payload.course_id);
+    if (directCourseId) return directCourseId;
+
+    const courseValue = payload.course;
+
+    if (courseValue && typeof courseValue === 'object') {
+      const nestedId = this._toInt(courseValue.id ?? courseValue.courseId ?? courseValue.course_id);
+      if (nestedId) return nestedId;
+    }
+
+    const fromCourseField = this._toInt(courseValue);
+    if (fromCourseField) return fromCourseField;
+
+    return null;
+  }
+
   _extractQuery(query = {}) {
     const page = this._toInt(query?.['pagination[page]']) || 1;
     const pageSize = this._toInt(query?.['pagination[pageSize]']) || 100;
@@ -101,6 +147,8 @@ class AssignmentsService {
       passing_score: record.passingScore ?? 0,
       allow_late_submission: Boolean(record.allowLateSubmission),
       attachment: record.attachment || null,
+      attachment_url: record.attachmentUrl || null,
+      attachment_name: record.attachmentName || null,
       course: this._mapCourse(record.course),
       submissions: Array.isArray(record.submissions)
         ? record.submissions.map((item) => ({
@@ -204,13 +252,15 @@ class AssignmentsService {
     const row = await prisma.assignment.create({
       data: {
         title,
-        description: payload.description ? String(payload.description) : null,
+        description: this._normalizeDescription(payload.description),
         dueDate,
         maxPoints,
         passingScore,
         allowLateSubmission: Boolean(payload.allow_late_submission ?? payload.allowLateSubmission),
         attachment: this._toInt(payload.attachment),
-        courseId: this._toInt(payload.course ?? payload.courseId),
+        attachmentUrl: payload.attachment_url ? String(payload.attachment_url).trim() : null,
+        attachmentName: payload.attachment_name ? String(payload.attachment_name).trim() : null,
+        courseId: this._resolveCourseId(payload),
         instructorId: context.userId || null,
       },
       include: this._include(),
@@ -236,7 +286,9 @@ class AssignmentsService {
       data.title = title;
     }
 
-    if (payload.description !== undefined) data.description = payload.description ? String(payload.description) : null;
+    if (payload.description !== undefined) {
+      data.description = this._normalizeDescription(payload.description);
+    }
     if (payload.due_date !== undefined || payload.dueDate !== undefined) {
       data.dueDate = this._parseDate(payload.due_date ?? payload.dueDate);
     }
@@ -250,8 +302,18 @@ class AssignmentsService {
       data.allowLateSubmission = Boolean(payload.allow_late_submission ?? payload.allowLateSubmission);
     }
     if (payload.attachment !== undefined) data.attachment = this._toInt(payload.attachment);
-    if (payload.course !== undefined || payload.courseId !== undefined) {
-      data.courseId = this._toInt(payload.course ?? payload.courseId);
+    if (payload.attachment_url !== undefined) {
+      data.attachmentUrl = payload.attachment_url
+        ? String(payload.attachment_url).trim()
+        : null;
+    }
+    if (payload.attachment_name !== undefined) {
+      data.attachmentName = payload.attachment_name
+        ? String(payload.attachment_name).trim()
+        : null;
+    }
+    if (payload.course !== undefined || payload.courseId !== undefined || payload.course_id !== undefined) {
+      data.courseId = this._resolveCourseId(payload);
     }
 
     const row = await prisma.assignment.update({

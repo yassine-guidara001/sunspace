@@ -5,6 +5,12 @@ const notificationsService = require('./notifications.service');
 const prisma = new PrismaClient();
 
 class ReservationsService {
+  _isWithinOpeningHours(date) {
+    if (!(date instanceof Date)) return false;
+    const minutes = date.getHours() * 60 + date.getMinutes();
+    return minutes >= 9 * 60 && minutes <= 18 * 60;
+  }
+
   _extractPayload(body = {}) {
     if (body && typeof body === 'object' && body.data && typeof body.data === 'object') {
       return body.data;
@@ -207,6 +213,32 @@ class ReservationsService {
 
     if (endDateTime <= startDateTime) {
       throw new ValidationError('La fin doit être après le début');
+    }
+
+    if (!this._isWithinOpeningHours(startDateTime) || !this._isWithinOpeningHours(endDateTime)) {
+      throw new ValidationError('Cet espace est ouvert uniquement de 09:00 à 18:00');
+    }
+
+    const overlappingReservation = await prisma.reservation.findFirst({
+      where: {
+        spaceId,
+        status: {
+          in: ['PENDING', 'CONFIRMED'],
+        },
+        startDateTime: {
+          lt: endDateTime,
+        },
+        endDateTime: {
+          gt: startDateTime,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (overlappingReservation) {
+      throw new ValidationError('Espace indisponible sur ce créneau. Choisissez une autre heure');
     }
 
     const row = await prisma.reservation.create({

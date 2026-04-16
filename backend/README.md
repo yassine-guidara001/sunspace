@@ -51,7 +51,7 @@ Authentifier un utilisateur (login)
       "id": 1,
       "username": "username",
       "email": "user@example.com",
-      "role": "USER",
+      "role": "Etudiant",
       "confirmed": true,
       "blocked": false,
       "createdAt": "2024-04-01T10:00:00Z",
@@ -188,7 +188,7 @@ CORS_ORIGIN="http://localhost:3000"
 - `username` (VARCHAR, UNIQUE)
 - `email` (VARCHAR, UNIQUE)
 - `password` (VARCHAR, hashed)
-- `role` (ENUM: ADMIN, TEACHERDIRECTOR, TECHNICIAN, TEACHER, STUDENT, USER)
+- `role` (ENUM: ADMIN, ENSEIGNANT, ETUDIANT, PROFESSIONNEL, ASSOCIATION, GESTIONNAIRE_ESPACE)
 - `confirmed` (BOOLEAN)
 - `blocked` (BOOLEAN)
 - `createdAt` (DATETIME)

@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 class TeacherStudentsService {
   static const String _baseApiUrl = 'http://localhost:3001/api';
+  static const String _meEndpoint = '/users/me?populate=role';
 
   final AuthService _authService;
 
@@ -14,31 +15,14 @@ class TeacherStudentsService {
       : _authService = authService ?? Get.find<AuthService>();
 
   Future<List<TeacherStudentModel>> loadTeacherStudents() async {
-    final meResponse = await http.get(
-      Uri.parse('$_baseApiUrl/users/me?populate=*'),
-      headers: _authService.authHeaders,
-    );
-
-    if (meResponse.statusCode < 200 || meResponse.statusCode >= 300) {
-      throw Exception(_extractErrorMessage(meResponse));
-    }
-
-    final meDecoded = _decodeJson(meResponse.body);
-    final meMap = _asMap(meDecoded['data'] ?? meDecoded);
-    final instructorId = _toInt(meMap['id']);
+    final instructorId = await _fetchInstructorId();
 
     if (instructorId <= 0) {
       throw Exception('Impossible de recuperer l\'identite enseignant');
     }
 
-    final enrollmentsUri = Uri.parse(
-      '$_baseApiUrl/enrollments?filters[course][instructor][id][\$eq]=$instructorId&populate=student&populate=course',
-    );
-
-    final enrollmentsResponse = await http.get(
-      enrollmentsUri,
-      headers: _authService.authHeaders,
-    );
+    final enrollmentsResponse =
+        await _fetchEnrollmentsByInstructor(instructorId);
 
     if (enrollmentsResponse.statusCode < 200 ||
         enrollmentsResponse.statusCode >= 300) {
@@ -105,6 +89,47 @@ class TeacherStudentsService {
     return rows;
   }
 
+  Future<int> _fetchInstructorId() async {
+    final cachedId = _authService.currentUserId;
+    if (cachedId != null && cachedId > 0) {
+      return cachedId;
+    }
+
+    final meResponse = await http.get(
+      Uri.parse('$_baseApiUrl$_meEndpoint'),
+      headers: _authService.authHeaders,
+    );
+
+    if (meResponse.statusCode < 200 || meResponse.statusCode >= 300) {
+      throw Exception(_extractErrorMessage(meResponse));
+    }
+
+    final meDecoded = _decodeJson(meResponse.body);
+    final resolvedId = _extractUserId(meDecoded);
+    if (resolvedId > 0) return resolvedId;
+
+    final synced = await _authService.syncCurrentUserProfile(force: true);
+    if (synced != null) {
+      final syncedId = _extractUserId(synced);
+      if (syncedId > 0) return syncedId;
+    }
+
+    return 0;
+  }
+
+  Future<http.Response> _fetchEnrollmentsByInstructor(int instructorId) {
+    // Requête alignée avec la capture réseau:
+    // GET /enrollments?filters[course][instructor][id][$eq]=ID&populate=student&populate=course
+    final enrollmentsUri = Uri.parse(
+      '$_baseApiUrl/enrollments?filters[course][instructor][id][\$eq]=$instructorId&populate=student&populate=course',
+    );
+
+    return http.get(
+      enrollmentsUri,
+      headers: _authService.authHeaders,
+    );
+  }
+
   dynamic _decodeJson(String body) {
     try {
       return jsonDecode(body);
@@ -162,6 +187,53 @@ class TeacherStudentsService {
     return int.tryParse('$value') ?? 0;
   }
 
+  int _extractUserId(dynamic payload) {
+    if (payload == null) return 0;
+
+    if (payload is Map) {
+      final map = Map<String, dynamic>.from(payload);
+
+      // Cas standard: /users/me => { id, username, ... }
+      final direct = _toInt(map['id'] ?? map['userId'] ?? map['user_id']);
+      if (direct > 0 && _looksLikeUserMap(map)) return direct;
+
+      // Cas enveloppés possibles: { data: {...} } ou { user: {...} }
+      final fromData = _extractUserId(map['data']);
+      if (fromData > 0) return fromData;
+
+      final fromUser = _extractUserId(map['user']);
+      if (fromUser > 0) return fromUser;
+
+      // Dernier fallback: id direct même sans clés utilisateur explicites.
+      if (direct > 0) return direct;
+    }
+
+    if (payload is List) {
+      for (final item in payload) {
+        final id = _extractUserId(item);
+        if (id > 0) return id;
+      }
+    }
+
+    return 0;
+  }
+
+  bool _looksLikeUserMap(Map<String, dynamic> map) {
+    const userKeys = <String>{
+      'username',
+      'email',
+      'fullName',
+      'name',
+      'role',
+      'confirmed',
+      'blocked',
+    };
+    for (final key in userKeys) {
+      if (map.containsKey(key)) return true;
+    }
+    return false;
+  }
+
   int _toPercent(dynamic value) {
     if (value == null) return 0;
     if (value is int) return value.clamp(0, 100);
@@ -176,7 +248,7 @@ class TeacherStudentsService {
   DateTime? _parseDate(dynamic value) {
     if (value == null) return null;
     if (value is DateTime) return value;
-    return DateTime.tryParse(value.toString());
+    return DateTime.tryParse(value.toString())?.toLocal();
   }
 
   String _firstNonEmpty(List<dynamic> values, {String fallback = ''}) {

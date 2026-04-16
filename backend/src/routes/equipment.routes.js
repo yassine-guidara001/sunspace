@@ -1,6 +1,7 @@
 const express = require('express');
 const equipmentController = require('../controllers/equipment.controller');
 const { authMiddleware, requireRole } = require('../middleware/auth');
+const { ROLES } = require('../utils/roles');
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ router.get('/:id', equipmentController.getEquipmentById);
 router.post(
   '/',
   authMiddleware,
-  requireRole('ADMIN', 'TEACHERDIRECTOR', 'TECHNICIAN', 'Admin', 'Gestionnaire d\'espace'),
+  requireRole(ROLES.ADMIN, ROLES.ENSEIGNANT, ROLES.PROFESSIONNEL, ROLES.GESTIONNAIRE_ESPACE),
   equipmentController.createEquipment
 );
 
@@ -22,7 +23,7 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
-  requireRole('ADMIN', 'TEACHERDIRECTOR', 'TECHNICIAN', 'Admin', 'Gestionnaire d\'espace'),
+  requireRole(ROLES.ADMIN, ROLES.ENSEIGNANT, ROLES.PROFESSIONNEL, ROLES.GESTIONNAIRE_ESPACE),
   equipmentController.updateEquipment
 );
 
@@ -30,7 +31,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
-  requireRole('ADMIN', 'TEACHERDIRECTOR', 'TECHNICIAN', 'Admin', 'Gestionnaire d\'espace'),
+  requireRole(ROLES.ADMIN, ROLES.ENSEIGNANT, ROLES.PROFESSIONNEL, ROLES.GESTIONNAIRE_ESPACE),
   equipmentController.deleteEquipment
 );
 

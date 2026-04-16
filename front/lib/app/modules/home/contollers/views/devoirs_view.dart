@@ -187,7 +187,9 @@ class _DevoirsPageState extends State<_DevoirsPage> {
                   child: Center(
                     child: Text(
                       'Aucun devoir trouvé',
-                      style: TextStyle(color: Color(0xFF94A3B8), ),
+                      style: TextStyle(
+                        color: Color(0xFF94A3B8),
+                      ),
                     ),
                   ),
                 )
@@ -241,7 +243,8 @@ class _DevoirsPageState extends State<_DevoirsPage> {
             alignment: Alignment.topCenter,
             child: SingleChildScrollView(
               child: Container(
-                width: 760,
+                width: double.infinity,
+                constraints: const BoxConstraints(maxWidth: 760),
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF8FAFC),
@@ -355,8 +358,7 @@ class _DevoirsPageState extends State<_DevoirsPage> {
                                       const SizedBox(height: 4),
                                       const Text(
                                         'Date limite de soumission',
-                                        style: TextStyle(
-                                            color: _muted),
+                                        style: TextStyle(color: _muted),
                                       ),
                                     ],
                                   ),
@@ -377,8 +379,7 @@ class _DevoirsPageState extends State<_DevoirsPage> {
                                       const SizedBox(height: 4),
                                       const Text(
                                         'Note maximale possible',
-                                        style: TextStyle(
-                                            color: _muted),
+                                        style: TextStyle(color: _muted),
                                       ),
                                     ],
                                   ),
@@ -425,7 +426,7 @@ class _DevoirsPageState extends State<_DevoirsPage> {
                                           'Autoriser les soumissions en retard',
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            ),
+                                          ),
                                         ),
                                         SizedBox(height: 2),
                                         Text(

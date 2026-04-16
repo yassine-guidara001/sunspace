@@ -19,6 +19,8 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 920;
+
     return Scaffold(
       backgroundColor: _bg,
       body: Obx(
@@ -31,13 +33,13 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
           }
 
           return Padding(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.all(isCompact ? 16 : 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeader(context),
+                _buildHeader(context, isCompact),
                 const SizedBox(height: 16),
-                Expanded(child: _buildTable()),
+                Expanded(child: _buildTable(isCompact)),
               ],
             ),
           );
@@ -415,7 +417,57 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
     return '${hhmm(start)} - ${hhmm(end)}';
   }
 
-  Widget _buildHeader(BuildContext context) {
+  Widget _buildHeader(BuildContext context, bool isCompact) {
+    if (isCompact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.groups_2_outlined, color: _primary, size: 30),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Mes Sessions',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    height: 1.0,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Planifiez et gérez vos sessions de formation',
+            style: TextStyle(color: _textMuted),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 40,
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _openSessionDialog(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _primary,
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('+ Nouvelle Session'),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -466,7 +518,7 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
     );
   }
 
-  Widget _buildTable() {
+  Widget _buildTable(bool isCompact) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -485,6 +537,62 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
               'Aucune session',
               style: TextStyle(color: Color(0xFF94A3B8)),
             ),
+          );
+        }
+
+        if (isCompact) {
+          return ListView.separated(
+            itemCount: rows.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (_, index) {
+              final session = rows[index];
+              return InkWell(
+                onTap: () => _openSessionDialog(Get.context!, session: session),
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        session.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        session.courseLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(color: _textMuted),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 12,
+                        runSpacing: 6,
+                        children: [
+                          Text('Type: ${_typeText(session.type)}'),
+                          Text('Début: ${_formatDateTime(session.startDate)}'),
+                          Text('Statut: ${_statusText(session.status)}'),
+                          Text(
+                            'Participants: ${session.participants.length}/${session.maxParticipants}',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           );
         }
 
@@ -621,11 +729,14 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
     showDialog<void>(
       context: context,
       builder: (dialogContext) {
+        final screenWidth = MediaQuery.of(dialogContext).size.width;
+        final dialogWidth = screenWidth < 560 ? screenWidth - 24 : 520.0;
+
         return Dialog(
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           child: Container(
-            width: 520,
+            width: dialogWidth,
             padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
             decoration: BoxDecoration(
               color: const Color(0xFFF8FAFC),

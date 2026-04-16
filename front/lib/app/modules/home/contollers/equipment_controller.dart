@@ -10,10 +10,17 @@ class EquipmentController extends GetxController {
 
   var equipments = <Equipment>[].obs;
   var isLoading = false.obs;
-  
+
   // Dynamic spaces for the dropdown
   var spacesList = <String>[].obs;
+  final spaceNameToId = <String, int>{}.obs;
   var isSpacesLoading = false.obs;
+
+  int? spaceIdForLabel(String label) {
+    final clean = label.trim();
+    if (clean.isEmpty || clean == 'Aucun') return null;
+    return spaceNameToId[clean];
+  }
 
   String? _readToken() {
     final token = _storageService.getToken() ??
@@ -51,16 +58,26 @@ class EquipmentController extends GetxController {
     try {
       isSpacesLoading(true);
       final list = await SpaceApi.getSpaces(populate: true);
-      
+
+      final mapping = <String, int>{};
+      for (final space in list) {
+        final name = space.name.trim();
+        if (name.isEmpty) continue;
+        mapping[name] = space.id;
+      }
+
       // Get unique names, add "Aucun" at the beginning
-      final names = list.map((s) => s.name).toSet().toList();
+      final names = mapping.keys.toSet().toList();
       names.sort();
-      
+
+      spaceNameToId.assignAll(mapping);
       spacesList.assignAll(['Aucun', ...names]);
     } catch (e) {
       print("Error fetching spaces for equipment dropdown: $e");
+      spaceNameToId.clear();
       if (spacesList.isEmpty) {
-        spacesList.assignAll(['Aucun', 'Espace Alpha', 'Espace Fatma', 'Espace fati']);
+        spacesList.assignAll(
+            ['Aucun', 'Espace Alpha', 'Espace Fatma', 'Espace fati']);
       }
     } finally {
       isSpacesLoading(false);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/auth_controller.dart';
+import 'package:flutter_getx_app/app/routes/app_routes.dart';
 import 'package:get/get.dart';
 
 class LoginPage extends StatelessWidget {
@@ -115,7 +116,8 @@ class LoginPage extends StatelessWidget {
                                     fontSize: 14),
                               ),
                               GestureDetector(
-                                onTap: () {},
+                                onTap: () =>
+                                    Get.toNamed(Routes.FORGOT_PASSWORD),
                                 child: const Text(
                                   'Mot de passe oublié?',
                                   style: TextStyle(

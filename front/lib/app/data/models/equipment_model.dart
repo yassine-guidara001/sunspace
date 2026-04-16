@@ -120,7 +120,7 @@ class Equipment {
       payload["notes"] = notes.trim();
     }
 
-    payload["spaces"] = spaceIds;
+    payload["spaceIds"] = spaceIds;
 
     payload["price_per_day"] = pricePerDay > 0 ? pricePerDay : 0;
 

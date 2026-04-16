@@ -162,6 +162,12 @@ class _PlanContentState extends State<_PlanContent> {
       final space = results[0] as SpaceModel;
       final equipments = results[1] as List<EquipmentModel>;
 
+      final filteredEquipments = equipments.where((equipment) {
+        // Règle métier: "Aucun" => équipement global, visible dans tous les espaces.
+        if (equipment.spaceIds.isEmpty) return true;
+        return equipment.spaceIds.contains(space.id);
+      }).toList();
+
       // Injecte les équipements disponibles dans le modèle space
       final spaceWithEquipments = SpaceModel(
         id: space.id,
@@ -173,7 +179,8 @@ class _PlanContentState extends State<_PlanContent> {
         pricePerDay: space.pricePerDay,
         type: space.type,
         isAvailable: space.isAvailable,
-        equipments: space.equipments.isNotEmpty ? space.equipments : equipments,
+        equipments:
+            space.equipments.isNotEmpty ? space.equipments : filteredEquipments,
       );
 
       if (!mounted) return;
@@ -182,7 +189,7 @@ class _PlanContentState extends State<_PlanContent> {
         context,
         space: spaceWithEquipments,
         apiService: _apiService,
-        availableEquipments: equipments,
+        availableEquipments: filteredEquipments,
       );
 
       if (result == true) {
@@ -260,6 +267,7 @@ class _PlanContentState extends State<_PlanContent> {
                       onSpaceTapped: _onSpaceTapped,
                       selectedSpaceId: _selectedSpaceId,
                       zoneLabels: _zoneLabels,
+                      spaceMap: _spaceByZoneId,
                     ),
                     Positioned(
                       bottom: 16,

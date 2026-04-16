@@ -99,9 +99,12 @@ class NotificationsController extends GetxController {
           return {
             ...map,
             'read': map['isRead'] == true,
-            'timestamp':
-                createdAtRaw != null ? DateTime.tryParse(createdAtRaw) : null,
-            'readAt': readAtRaw != null ? DateTime.tryParse(readAtRaw) : null,
+            'timestamp': createdAtRaw != null
+                ? DateTime.tryParse(createdAtRaw)?.toLocal()
+                : null,
+            'readAt': readAtRaw != null
+                ? DateTime.tryParse(readAtRaw)?.toLocal()
+                : null,
           };
         }).toList();
 

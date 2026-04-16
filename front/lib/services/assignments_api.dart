@@ -42,6 +42,15 @@ class AssignmentsApi {
       return const <Assignment>[];
     }
 
+    // In "Mes devoirs", privileged roles should not be constrained by
+    // enrollment rows because they can browse cross-course assignments.
+    final bypassEnrollmentFilter = await _shouldBypassEnrollmentFilter();
+    if (bypassEnrollmentFilter) {
+      final allUri = Uri.parse('$_baseApiUrl/assignments?$populateQuery');
+      final allAssignments = await _fetchAssignmentsCandidate(allUri);
+      return allAssignments ?? const <Assignment>[];
+    }
+
     // Pour les étudiants : récupérer en priorité les devoirs des cours inscrits.
     final enrolledCourseIds = await _getStudentEnrolledCourseIds();
 
@@ -395,6 +404,51 @@ class AssignmentsApi {
     _throwIfError(response);
   }
 
+  Future<Map<String, dynamic>> submitAssignment({
+    required int assignmentId,
+    String? content,
+    String status = 'SUBMITTED',
+  }) async {
+    if (assignmentId <= 0) {
+      throw Exception('ID de devoir invalide');
+    }
+
+    final currentUserId = _authService.currentUserId;
+
+    final uri = Uri.parse('$_baseApiUrl/submissions');
+    final payload = {
+      'data': {
+        'assignment': assignmentId,
+        if (currentUserId != null && currentUserId > 0)
+          'student': currentUserId,
+        'content': (content ?? '').trim().isEmpty ? null : content!.trim(),
+        'status': status,
+      }
+    };
+
+    debugPrint('[AssignmentsAPI] POST $uri');
+    debugPrint('[AssignmentsAPI] Payload: $payload');
+
+    final response = await http
+        .post(
+          uri,
+          headers: _authService.authHeaders,
+          body: jsonEncode(payload),
+        )
+        .timeout(_requestTimeout);
+
+    _logResponse(response);
+    _throwIfError(response);
+
+    final decoded = _decodeMap(response.body);
+    final data = decoded['data'];
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+
+    return decoded;
+  }
+
   Future<Map<String, dynamic>> uploadAttachment(dynamic file) async {
     final uri = Uri.parse('$_baseApiUrl/upload');
     debugPrint('[AssignmentsAPI] POST $uri (upload)');
@@ -510,9 +564,11 @@ class AssignmentsApi {
     final fallbackCourseId =
         _toIntNullable(source['courseId'] ?? source['course_id']);
 
+    // Prefer an explicit numeric courseId when available.
+    if (fallbackCourseId != null) return fallbackCourseId;
+
     if (rawCourse is int) return rawCourse;
     if (rawCourse is num) return rawCourse.toInt();
-    if (fallbackCourseId != null) return fallbackCourseId;
 
     if (rawCourse is String) {
       final trimmed = rawCourse.trim();
@@ -763,6 +819,71 @@ class AssignmentsApi {
     return const <Map<String, dynamic>>[];
   }
 
+  /// Récupère toutes les soumissions d'un devoir (enseignant) avec les infos étudiant.
+  Future<List<Map<String, dynamic>>> getSubmissionsForAssignmentWithStudents(
+      int assignmentId) async {
+    if (assignmentId <= 0) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    final baseUri = Uri.parse(
+      '$_baseApiUrl/submissions?filters[assignment][id][\$eq]=$assignmentId&populate=student&populate=assignment&sort=submittedAt:desc',
+    );
+
+    final firstPageUri = _withPagination(baseUri, page: 1, pageSize: 100);
+    debugPrint('[AssignmentsAPI] GET $firstPageUri');
+
+    final firstResponse = await http
+        .get(firstPageUri, headers: _authService.authHeaders)
+        .timeout(_requestTimeout);
+    _logResponse(firstResponse);
+
+    if (firstResponse.statusCode == 404) {
+      return const <Map<String, dynamic>>[];
+    }
+
+    if (firstResponse.statusCode < 200 || firstResponse.statusCode >= 300) {
+      _throwIfError(firstResponse);
+      return const <Map<String, dynamic>>[];
+    }
+
+    final submissions = <Map<String, dynamic>>[];
+    submissions.addAll(_parseSubmissionsList(firstResponse.body));
+
+    final pageInfo = _extractPaginationInfo(firstResponse.body);
+    if (pageInfo != null && pageInfo.pageCount > pageInfo.page) {
+      for (var page = pageInfo.page + 1; page <= pageInfo.pageCount; page++) {
+        final pageUri = _withPagination(
+          baseUri,
+          page: page,
+          pageSize: pageInfo.pageSize,
+        );
+
+        debugPrint('[AssignmentsAPI] GET $pageUri');
+
+        final response = await http
+            .get(pageUri, headers: _authService.authHeaders)
+            .timeout(_requestTimeout);
+        _logResponse(response);
+
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          submissions.addAll(_parseSubmissionsList(response.body));
+          continue;
+        }
+
+        if (response.statusCode == 404 ||
+            response.statusCode == 400 ||
+            response.statusCode == 422) {
+          break;
+        }
+
+        _throwIfError(response);
+      }
+    }
+
+    return submissions;
+  }
+
   /// Récupère les submissions de l'étudiant courant et les regroupe par devoir.
   Future<Map<int, List<Map<String, dynamic>>>>
       getStudentSubmissionsByAssignment({Set<int>? assignmentIds}) async {
@@ -993,6 +1114,72 @@ class AssignmentsApi {
     }
 
     return null;
+  }
+
+  Future<bool> _shouldBypassEnrollmentFilter() async {
+    Map<String, dynamic>? profile;
+
+    try {
+      profile = await _authService.syncCurrentUserProfile();
+    } catch (_) {
+      // Ignore profile sync failures and keep standard student filtering.
+    }
+
+    final role = _extractRoleName(profile).toLowerCase();
+    if (role.isEmpty) {
+      return false;
+    }
+
+    return role.contains('admin') ||
+        role.contains('administrator') ||
+        role.contains('gestionnaire') ||
+        role.contains('manager') ||
+        role.contains('enseignant') ||
+        role.contains('teacher') ||
+        role.contains('teacherdirector') ||
+        role.contains('technician');
+  }
+
+  String _extractRoleName(Map<String, dynamic>? profile) {
+    if (profile == null) return '';
+
+    String roleFrom(dynamic source) {
+      if (source == null) return '';
+
+      if (source is String) {
+        return source.trim();
+      }
+
+      if (source is Map<String, dynamic>) {
+        final roleNode = source['role'];
+        if (roleNode is String) {
+          return roleNode.trim();
+        }
+
+        if (roleNode is Map<String, dynamic>) {
+          final roleName =
+              (roleNode['name'] ?? roleNode['type'] ?? '').toString().trim();
+          if (roleName.isNotEmpty) {
+            return roleName;
+          }
+        }
+
+        final direct = (source['role_name'] ??
+                source['userRole'] ??
+                source['user_role'] ??
+                source['type'] ??
+                '')
+            .toString()
+            .trim();
+        if (direct.isNotEmpty) {
+          return direct;
+        }
+      }
+
+      return '';
+    }
+
+    return roleFrom(profile);
   }
 }
 

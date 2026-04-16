@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 
 class CoursesApi {
   static const String baseUrl = 'http://localhost:3001/api';
+  static const String _teacherRole = 'Enseignant';
 
   final StorageService _storageService;
 
@@ -105,6 +106,36 @@ class CoursesApi {
     }
 
     throw _buildHttpException('GET_INSTRUCTOR_COURSES', response);
+  }
+
+  Future<List<Course>> getTeacherCourses() async {
+    final uri = Uri.parse(
+      '$baseUrl/courses?filters[instructor][role][\$in]=$_teacherRole&populate=*&sort=createdAt:desc',
+    );
+    final response = await http.get(uri, headers: _headersOptionalAuth());
+
+    if (_isSuccess(response.statusCode)) {
+      final decoded = jsonDecode(response.body);
+
+      if (decoded is Map<String, dynamic> && decoded['data'] is List) {
+        final items = decoded['data'] as List<dynamic>;
+        return items
+            .whereType<Map>()
+            .map((e) => Course.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+
+      if (decoded is List) {
+        return decoded
+            .whereType<Map>()
+            .map((e) => Course.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+      }
+
+      return <Course>[];
+    }
+
+    throw _buildHttpException('GET_TEACHER_COURSES', response);
   }
 
   Future<List<Course>> getStudentMyCourses() async {

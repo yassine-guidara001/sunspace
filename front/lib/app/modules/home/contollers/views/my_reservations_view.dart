@@ -116,35 +116,52 @@ class _MyReservationsViewState extends State<MyReservationsView> {
 
   String _startDateOf(Map<String, dynamic> r) {
     final raw = r['start_datetime'] ?? '';
-    final dt = DateTime.tryParse(raw.toString());
+    final dt = DateTime.tryParse(raw.toString())?.toLocal();
     if (dt == null) return '';
-    return DateFormat('d MMMM yyyy', 'fr').format(dt.toLocal());
+    return DateFormat('d MMMM yyyy', 'fr').format(dt);
   }
 
   String _timeRangeOf(Map<String, dynamic> r) {
     final start = r['start_datetime'] ?? '';
     final end = r['end_datetime'] ?? '';
-    final ds = DateTime.tryParse(start.toString());
-    final de = DateTime.tryParse(end.toString());
+    final ds = DateTime.tryParse(start.toString())?.toLocal();
+    final de = DateTime.tryParse(end.toString())?.toLocal();
     if (ds == null) return '';
     final fmt = DateFormat('HH:mm');
-    if (de == null) return fmt.format(ds.toLocal());
-    return '${fmt.format(ds.toLocal())} - ${fmt.format(de.toLocal())}';
+    if (de == null) return fmt.format(ds);
+    return '${fmt.format(ds)} - ${fmt.format(de)}';
   }
 
   double _amountOf(Map<String, dynamic> r) =>
       (r['total_amount'] ?? 0).toDouble();
 
   // ── Annuler réservation ───────────────────────────────────────────────────
-  Future<void> _cancel(String documentId) async {
+  Future<void> _cancel(Map<String, dynamic> reservation) async {
+    final documentId = reservation['documentId']?.toString() ?? '';
+    if (documentId.isEmpty) return;
+
     try {
       final uri = Uri.parse('$_baseUrl/reservations/$documentId');
-      await http.put(uri,
-          headers: _headers,
-          body: jsonEncode({
-            'data': {'mystatus': 'Annulée'}
-          }));
-      _load();
+      final response = await http.put(
+        uri,
+        headers: _headers,
+        body: jsonEncode({
+          'data': {'mystatus': 'Annulée'}
+        }),
+      );
+
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('Code ${response.statusCode}');
+      }
+
+      _all.removeWhere((item) => item['documentId']?.toString() == documentId);
+      _applyFilter();
+
+      Get.snackbar(
+        'Succès',
+        'Réservation annulée.',
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } catch (e) {
       Get.snackbar('Erreur', 'Impossible d\'annuler: $e',
           snackPosition: SnackPosition.BOTTOM);
@@ -589,7 +606,7 @@ class _MyReservationsViewState extends State<MyReservationsView> {
                 // Bouton Annuler (si pas déjà annulé/confirmé)
                 if (!isConf && !isCancel && docId.isNotEmpty)
                   GestureDetector(
-                    onTap: () => _cancel(docId),
+                    onTap: () => _cancel(r),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: const [

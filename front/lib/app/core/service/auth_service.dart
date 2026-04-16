@@ -174,6 +174,69 @@ class AuthService extends GetxService {
     return updated;
   }
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseApiUrl/auth/change-password'),
+      headers: authHeaders,
+      body: jsonEncode({
+        'currentPassword': currentPassword,
+        'newPassword': newPassword,
+        'confirmPassword': confirmPassword,
+      }),
+    );
+
+    final decoded = _decodeBody(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_statusMessage(response.statusCode, decoded));
+    }
+  }
+
+  Future<Map<String, dynamic>> requestPasswordReset({
+    required String email,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseApiUrl/auth/forgot-password'),
+      headers: authHeaders,
+      body: jsonEncode({
+        'email': email.trim(),
+      }),
+    );
+
+    final decoded = _decodeBody(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_statusMessage(response.statusCode, decoded));
+    }
+
+    return decoded['data'] is Map<String, dynamic>
+        ? Map<String, dynamic>.from(decoded['data'] as Map)
+        : decoded;
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String password,
+    required String confirmPassword,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseApiUrl/auth/reset-password'),
+      headers: authHeaders,
+      body: jsonEncode({
+        'token': token.trim(),
+        'password': password,
+        'confirmPassword': confirmPassword,
+      }),
+    );
+
+    final decoded = _decodeBody(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_statusMessage(response.statusCode, decoded));
+    }
+  }
+
   Future<String> login({
     required String identifier,
     required String password,

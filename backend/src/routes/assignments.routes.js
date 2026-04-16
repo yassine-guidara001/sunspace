@@ -1,10 +1,11 @@
 const express = require('express');
 const assignmentsController = require('../controllers/assignments.controller');
 const { authMiddleware, requireRole } = require('../middleware/auth');
+const { MANAGER_ROLES } = require('../utils/roles');
 
 const router = express.Router();
 
-const managerRoles = ['ADMIN', 'TEACHERDIRECTOR', 'Admin', 'Enseignant', 'Professionnel', 'Association'];
+const managerRoles = MANAGER_ROLES;
 
 router.get('/', authMiddleware, assignmentsController.getAll);
 router.get('/:id', authMiddleware, assignmentsController.getById);

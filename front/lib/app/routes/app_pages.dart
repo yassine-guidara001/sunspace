@@ -15,7 +15,6 @@ import 'package:flutter_getx_app/app/data/services/teacher_students_service.dart
 import 'package:flutter_getx_app/app/modules/home/contollers/views/equipments_view.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/courses_view.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/dashboard_view.dart';
-import 'package:flutter_getx_app/app/modules/home/contollers/views/home_view.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/my_reservations_view.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/reservations_view.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/associations_view.dart';
@@ -27,6 +26,7 @@ import 'package:flutter_getx_app/app/modules/home/contollers/views/association_m
 import 'package:flutter_getx_app/app/modules/home/contollers/views/association_budget_usage_view.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/association_budget_controller.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/settings_controller.dart';
+import 'package:flutter_getx_app/app/modules/home/contollers/password_recovery_controller.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/settings_view.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/user_view.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/views/sessions_view.dart';
@@ -43,6 +43,7 @@ import 'package:get/get.dart';
 // Pages Auth
 import 'package:flutter_getx_app/pages/login_page.dart';
 import 'package:flutter_getx_app/pages/registre_page.dart';
+import 'package:flutter_getx_app/app/modules/home/contollers/views/forgot_password_view.dart';
 
 import 'app_routes.dart';
 
@@ -54,6 +55,26 @@ class AppPages {
     // ── Auth ────────────────────────────────────────────────────────────────
     GetPage(name: Routes.LOGIN, page: () => LoginPage()),
     GetPage(name: Routes.REGISTER, page: () => const RegisterPage()),
+    GetPage(
+      name: Routes.FORGOT_PASSWORD,
+      page: () => const ForgotPasswordView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut<PasswordRecoveryController>(
+          () => PasswordRecoveryController(),
+          fenix: true,
+        );
+      }),
+    ),
+    GetPage(
+      name: Routes.RESET_PASSWORD,
+      page: () => const ResetPasswordView(),
+      binding: BindingsBuilder(() {
+        Get.lazyPut<PasswordRecoveryController>(
+          () => PasswordRecoveryController(),
+          fenix: true,
+        );
+      }),
+    ),
 
     // ── Dashboard ────────────────────────────────────────────────────────────
     GetPage(

@@ -1645,7 +1645,7 @@ class CoursesView extends GetView<CourseController> {
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                         ),
                         child: Text(
-                          isEdit ? 'Mettre ├á jour' : 'Cr├®er le cours',
+                          isEdit ? 'Mettre à jour' : 'Créer le cours',
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                           ),

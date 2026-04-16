@@ -146,7 +146,7 @@ class _AssociationMembersViewState extends State<AssociationMembersView> {
 
   String _joinDate(Map<String, dynamic> m) {
     final raw = m['createdAt']?.toString() ?? '';
-    final dt = DateTime.tryParse(raw);
+    final dt = DateTime.tryParse(raw)?.toLocal();
     if (dt == null) return '';
     return 'Depuis ${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
   }

@@ -30,7 +30,7 @@ class UserView extends StatelessWidget {
                         const SizedBox(height: 32),
                         _buildSearchBar(),
                         const SizedBox(height: 16),
-                        _buildUsersTable(),
+                        _buildUsersTable(isCompact),
                       ],
                     ),
                   ),
@@ -161,7 +161,7 @@ class UserView extends StatelessWidget {
     );
   }
 
-  Widget _buildUsersTable() {
+  Widget _buildUsersTable(bool isCompact) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -186,6 +186,78 @@ class UserView extends StatelessWidget {
           return const Padding(
               padding: EdgeInsets.all(40.0),
               child: Center(child: Text("Aucun utilisateur trouvé")));
+        }
+
+        if (isCompact) {
+          return ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: users.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.username,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      user.email,
+                      style: const TextStyle(color: Color(0xFF475569)),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 6,
+                      children: [
+                        Text('Rôle: ${user.role}'),
+                        Text('Statut: ${_statusText(user)}'),
+                        Text(
+                          'Inscrit: ${user.createdAt.day.toString().padLeft(2, '0')}/${user.createdAt.month.toString().padLeft(2, '0')}/${user.createdAt.year}',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.edit_outlined,
+                              size: 20, color: Colors.grey),
+                          onPressed: () =>
+                              _showUserFormDialog(context, user: user),
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.delete_outline,
+                              size: 20, color: Colors.grey),
+                          onPressed: () => _confirmDelete(user),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
         }
 
         return Column(

@@ -1,4 +1,14 @@
 const Joi = require('joi');
+const { ROLES, isSupportedRole } = require('../utils/roles');
+
+const roleSchema = Joi.string()
+  .trim()
+  .custom((value, helpers) => {
+    if (!isSupportedRole(value)) {
+      return helpers.error('any.invalid');
+    }
+    return value;
+  }, 'role validation');
 
 /**
  * Schéma de validation pour créer un utilisateur
@@ -16,24 +26,12 @@ const createUserSchema = Joi.object({
   password: Joi.string().min(6).max(255).optional().messages({
     'string.min': 'Mot de passe doit avoir au moins 6 caractères',
   }),
-  role: Joi.string()
-    .valid(
-      'Authenticated',
-      'Public',
-      'SUPER_ADMIN',
-      'Etudiant',
-      'Enseignant',
-      "Gestionnaire d'espace",
-      'Admin',
-      'Professionnel',
-      'Association',
-      'USER'
-    )
+  role: roleSchema
     .empty('')
-    .default('USER')
+    .default(ROLES.ETUDIANT)
     .optional()
     .messages({
-      'any.only': 'Rôle invalide',
+      'any.invalid': 'Rôle invalide',
     }),
   confirmed: Joi.boolean().optional().default(true),
   blocked: Joi.boolean().optional().default(false),
@@ -46,23 +44,11 @@ const updateUserSchema = Joi.object({
   username: Joi.string().alphanum().min(3).max(255).optional(),
   email: Joi.string().email().max(255).optional(),
   password: Joi.string().min(6).max(255).optional(),
-  role: Joi.string()
-    .valid(
-      'Authenticated',
-      'Public',
-      'SUPER_ADMIN',
-      'Etudiant',
-      'Enseignant',
-      "Gestionnaire d'espace",
-      'Admin',
-      'Professionnel',
-      'Association',
-      'USER'
-    )
+  role: roleSchema
     .empty('')
     .optional()
     .messages({
-      'any.only': 'Rôle invalide',
+      'any.invalid': 'Rôle invalide',
     }),
   confirmed: Joi.boolean().optional(),
   blocked: Joi.boolean().optional(),

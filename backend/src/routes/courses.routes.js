@@ -3,10 +3,11 @@ const coursesController = require('../controllers/courses.controller');
 const { authMiddleware, requireRole } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 const { createCourseSchema, updateCourseSchema } = require('../validators/courses.validator');
+const { MANAGER_ROLES } = require('../utils/roles');
 
 const router = express.Router();
 
-const managerRoles = ['ADMIN', 'TEACHERDIRECTOR', 'Admin', 'Enseignant', 'Professionnel', 'Association'];
+const managerRoles = MANAGER_ROLES;
 
 // GET /api/courses
 router.get('/', authMiddleware, coursesController.getAllCourses);

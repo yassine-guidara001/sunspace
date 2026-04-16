@@ -1,10 +1,11 @@
 const express = require('express');
 const associationsController = require('../controllers/associations.controller');
 const { authMiddleware, requireRole } = require('../middleware/auth');
+const { ROLES, MANAGER_ROLES } = require('../utils/roles');
 
 const router = express.Router();
 
-const managerRoles = ['ADMIN', 'TEACHERDIRECTOR', 'Association', 'Admin', 'Gestionnaire d\'espace'];
+const managerRoles = MANAGER_ROLES;
 
 // GET /api/associations
 router.get('/', authMiddleware, associationsController.getAllAssociations);
@@ -16,7 +17,7 @@ router.get('/:id', authMiddleware, associationsController.getAssociationById);
 router.post(
   '/',
   authMiddleware,
-  requireRole(...managerRoles),
+  requireRole(...managerRoles, ROLES.ASSOCIATION),
   associationsController.createAssociation
 );
 
@@ -32,7 +33,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
-  requireRole(...managerRoles),
+  requireRole(...managerRoles, ROLES.ASSOCIATION),
   associationsController.deleteAssociation
 );
 

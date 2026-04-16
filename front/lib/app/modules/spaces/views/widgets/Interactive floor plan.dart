@@ -3,18 +3,21 @@ import 'dart:ui_web' as ui_web;
 import 'dart:html' as html;
 import 'package:flutter/material.dart';
 import 'package:flutter_getx_app/app/modules/home/modules/plan/floor%20plan%20data.dart';
+import 'package:flutter_getx_app/app/modules/home/modules/plan/models/space_model%20plan.dart';
 
 class InteractiveFloorPlan extends StatefulWidget {
   final void Function(String spaceId, String label, Offset globalPosition)
       onSpaceTapped;
   final String? selectedSpaceId;
   final Map<String, String>? zoneLabels;
+  final Map<String, SpaceModel>? spaceMap;
 
   const InteractiveFloorPlan({
     super.key,
     required this.onSpaceTapped,
     this.selectedSpaceId,
     this.zoneLabels,
+    this.spaceMap,
   });
 
   @override
@@ -65,17 +68,18 @@ class _InteractiveFloorPlanState extends State<InteractiveFloorPlan> {
       ..style.position = 'fixed'
       ..style.background = '#1E293B'
       ..style.color = 'white'
-      ..style.padding = '8px 14px'
+      ..style.padding = '12px 16px'
       ..style.borderRadius = '8px'
       ..style.fontSize = '13px'
       ..style.fontFamily = '-apple-system, BlinkMacSystemFont, sans-serif'
-      ..style.fontWeight = '600'
+      ..style.fontWeight = '500'
       ..style.pointerEvents = 'none'
       ..style.display = 'none'
-      ..style.whiteSpace = 'nowrap'
+      ..style.whiteSpace = 'normal'
       ..style.zIndex = '9999'
       ..style.boxShadow = '0 4px 12px rgba(0,0,0,0.25)'
-      ..style.border = '1px solid rgba(255,255,255,0.1)';
+      ..style.border = '1px solid rgba(255,255,255,0.1)'
+      ..style.maxWidth = '320px';
     html.document.body!.append(_tooltip!);
 
     for (final zone in FloorPlanData.zones) {
@@ -99,14 +103,45 @@ class _InteractiveFloorPlanState extends State<InteractiveFloorPlan> {
         zoneEl.style.border = '2.5px solid #22C55E';
         zoneEl.style.boxShadow = '0 0 0 3px rgba(34,197,94,0.15)';
 
-        // Tooltip avec nom de l'espace
-        _tooltip!
-          ..innerHtml = '''
-            <div style="display:flex;align-items:center;gap:8px">
-              <div style="width:8px;height:8px;border-radius:50%;background:#22C55E;flex-shrink:0"></div>
-              <span>$zoneLabel</span>
+        // Récupère les données de l'espace
+        final space = widget.spaceMap?[zone.spaceId];
+
+        // Construit la tooltip avec les infos complètes
+        String tooltipHtml = '''
+          <div style="display:flex;align-items:flex-start;gap:12px;width:280px">
+            <div style="width:8px;height:8px;border-radius:50%;background:#22C55E;flex-shrink:0;margin-top:2px"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:14px;margin-bottom:6px">$zoneLabel</div>
+        ''';
+
+        if (space != null) {
+          tooltipHtml += '''
+            <div style="font-size:12px;color:rgba(255,255,255,0.8);line-height:1.4">
+          ''';
+
+          tooltipHtml +=
+              '''<div><strong>Type:</strong> ${space.type.label}</div>''';
+
+          tooltipHtml +=
+              '''<div><strong>Capacité:</strong> ${space.maxPersons} personnes</div>''';
+
+          final status = space.isAvailable ? 'Disponible' : 'Indisponible';
+          final statusColor = space.isAvailable ? '#22C55E' : '#EF4444';
+          tooltipHtml +=
+              '''<div><strong>Statut:</strong> <span style="color:$statusColor">$status</span></div>''';
+
+          tooltipHtml += '''
             </div>
-          '''
+          ''';
+        }
+
+        tooltipHtml += '''
+            </div>
+          </div>
+        ''';
+
+        _tooltip!
+          ..innerHtml = tooltipHtml
           ..style.display = 'block';
       });
 
@@ -117,8 +152,8 @@ class _InteractiveFloorPlanState extends State<InteractiveFloorPlan> {
         }
         double x = e.client.x + 16;
         double y = e.client.y + 16;
-        if (x + 200 > (html.window.innerWidth ?? 1200)) x = e.client.x - 210;
-        if (y + 50 > (html.window.innerHeight ?? 800)) y = e.client.y - 56;
+        if (x + 320 > (html.window.innerWidth ?? 1200)) x = e.client.x - 336;
+        if (y + 160 > (html.window.innerHeight ?? 800)) y = e.client.y - 180;
         _tooltip!.style
           ..left = '${x}px'
           ..top = '${y}px';

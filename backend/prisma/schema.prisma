@@ -13,11 +13,11 @@ datasource db {
 // ============ ROLES ============
 enum UserRole {
   ADMIN
-  TEACHERDIRECTOR
-  TECHNICIAN
-  TEACHER
-  STUDENT
-  USER
+  ENSEIGNANT
+  ETUDIANT
+  PROFESSIONNEL
+  ASSOCIATION
+  GESTIONNAIRE_ESPACE
 }
 
 enum ReservationStatus {
@@ -34,7 +34,9 @@ model User {
   username  String    @unique @db.VarChar(255)
   email     String    @unique @db.VarChar(255)
   password  String    @db.VarChar(255)
-  role      String    @default("USER") @db.VarChar(255)
+  resetPasswordTokenHash String? @db.VarChar(255)
+  resetPasswordExpiresAt  DateTime?
+  role      String    @default("Etudiant") @db.VarChar(255)
   confirmed Boolean   @default(false)
   blocked   Boolean   @default(false)
   
@@ -50,12 +52,78 @@ model User {
   associationAdmin Association[] @relation("AssociationAdmin")
   associationMemberships AssociationMember[]
   notifications               Notification[]
+  sentPrivateMessages         PrivateMessage[] @relation("PrivateMessageSender")
+  receivedPrivateMessages     PrivateMessage[] @relation("PrivateMessageRecipient")
+  forumThreads                ForumThread[] @relation("ForumThreadAuthor")
+  forumReplies                ForumReply[] @relation("ForumReplyAuthor")
+  validatedForumReplies       ForumReply[] @relation("ForumReplyValidator")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([email])
   @@index([username])
+}
+
+// ============ COMMUNICATION ============
+model PrivateMessage {
+  id          Int      @id @default(autoincrement())
+  sender      User     @relation("PrivateMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId    Int
+  recipient   User     @relation("PrivateMessageRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  recipientId Int
+  subject     String?  @db.VarChar(255)
+  body        String   @db.Text
+  isRead      Boolean  @default(false)
+  readAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([createdAt])
+}
+
+model ForumThread {
+  id       Int      @id @default(autoincrement())
+  author   User     @relation("ForumThreadAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  authorId Int
+  title    String   @db.VarChar(255)
+  body     String   @db.Text
+  tags     Json?    @db.Json
+  status   String   @default("OPEN") @db.VarChar(20)
+  replies  ForumReply[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model ForumReply {
+  id       Int        @id @default(autoincrement())
+  thread   ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  threadId Int
+  author   User       @relation("ForumReplyAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  authorId Int
+  body     String     @db.Text
+  likeCount Int       @default(0)
+  helpfulCount Int    @default(0)
+  isValidated Boolean @default(false)
+  validatedAt DateTime?
+  validatedBy   User? @relation("ForumReplyValidator", fields: [validatedById], references: [id], onDelete: SetNull)
+  validatedById Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([threadId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@index([isValidated])
 }
 
 // ============ SPACES ============
@@ -280,6 +348,8 @@ model Assignment {
   passingScore        Int         @default(0)
   allowLateSubmission Boolean     @default(false)
   attachment          Int?
+  attachmentUrl       String?     @db.VarChar(500)
+  attachmentName      String?     @db.VarChar(255)
   course              Course?     @relation(fields: [courseId], references: [id], onDelete: SetNull)
   courseId            Int?
   instructor          User?       @relation("AssignmentInstructor", fields: [instructorId], references: [id], onDelete: SetNull)

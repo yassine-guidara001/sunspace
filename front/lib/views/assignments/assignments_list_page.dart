@@ -21,16 +21,20 @@ class AssignmentsListPage extends GetView<AssignmentsController> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: _pageBg,
       body: Row(
         children: [
-          CustomSidebar(),
+          const CustomSidebar(),
           Expanded(
             child: Column(
               children: [
-                DashboardTopBar(),
-                Expanded(child: _AssignmentsListContent()),
+                const DashboardTopBar(),
+                Expanded(
+                  child: _AssignmentsListContent(
+                    isCompact: MediaQuery.of(context).size.width < 920,
+                  ),
+                ),
               ],
             ),
           ),
@@ -41,7 +45,9 @@ class AssignmentsListPage extends GetView<AssignmentsController> {
 }
 
 class _AssignmentsListContent extends StatefulWidget {
-  const _AssignmentsListContent();
+  const _AssignmentsListContent({required this.isCompact});
+
+  final bool isCompact;
 
   @override
   State<_AssignmentsListContent> createState() =>
@@ -70,73 +76,125 @@ class _AssignmentsListContentState extends State<_AssignmentsListContent> {
   Widget build(BuildContext context) {
     final controller = Get.find<AssignmentsController>();
     final home = Get.find<HomeController>();
+    final isCompact = widget.isCompact;
 
     return Obx(() {
       final isStudentMode =
           home.selectedMenu.value == _studentAssignmentsMenuIndex;
 
       return Padding(
-        padding: const EdgeInsets.all(24),
+        padding: EdgeInsets.all(isCompact ? 16 : 24),
         child: isStudentMode
-            ? _buildStudentContent(controller)
-            : _buildTeacherContent(controller),
+            ? _buildStudentContent(controller, isCompact)
+            : _buildTeacherContent(controller, isCompact),
       );
     });
   }
 
-  Widget _buildTeacherContent(AssignmentsController controller) {
+  Widget _buildTeacherContent(
+      AssignmentsController controller, bool isCompact) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.description_outlined,
-                        color: AssignmentsListPage._primary, size: 30),
-                    SizedBox(width: 8),
-                    Text(
+        if (isCompact)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.description_outlined,
+                      color: AssignmentsListPage._primary, size: 28),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
                       'Devoirs',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         height: 1.02,
                         fontWeight: FontWeight.w700,
                         color: Color(0xFF212121),
                       ),
                     ),
-                  ],
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Gérez les devoirs et les évaluations',
-                  style: TextStyle(
-                    color: Color(0xFF757575),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(
-              height: 40,
-              child: ElevatedButton.icon(
-                onPressed: () => Get.to(() => const AssignmentFormPage()),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Nouveau Devoir'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AssignmentsListPage._primary,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                ],
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Gérez les devoirs et les évaluations',
+                style: TextStyle(color: Color(0xFF757575)),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 40,
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => Get.to(() => const AssignmentFormPage()),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Nouveau Devoir'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AssignmentsListPage._primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          )
+        else
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.description_outlined,
+                          color: AssignmentsListPage._primary, size: 30),
+                      SizedBox(width: 8),
+                      Text(
+                        'Devoirs',
+                        style: TextStyle(
+                          height: 1.02,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF212121),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Gérez les devoirs et les évaluations',
+                    style: TextStyle(
+                      color: Color(0xFF757575),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(
+                height: 40,
+                child: ElevatedButton.icon(
+                  onPressed: () => Get.to(() => const AssignmentFormPage()),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Nouveau Devoir'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AssignmentsListPage._primary,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         const SizedBox(height: 14),
         Container(
           width: double.infinity,
@@ -221,6 +279,146 @@ class _AssignmentsListContentState extends State<_AssignmentsListContent> {
 
                     if (rows.isEmpty) {
                       return _buildEmptyState('Aucun devoir trouvé');
+                    }
+
+                    if (isCompact) {
+                      return ListView.separated(
+                        itemCount: rows.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (_, index) {
+                          final item = rows[index];
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(
+                                color: AssignmentsListPage._border,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xFF111827),
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 6,
+                                  children: [
+                                    Text(
+                                      'Cours: ${item.courseName}',
+                                      style: const TextStyle(
+                                        color: Color(0xFF111827),
+                                      ),
+                                    ),
+                                    Text(
+                                      'Échéance: ${_formatDate(item.dueDate)}',
+                                      style: const TextStyle(
+                                        color: Color(0xFF111827),
+                                      ),
+                                    ),
+                                    Text(
+                                      'Points: ${item.maxPoints}',
+                                      style: const TextStyle(
+                                        color: Color(0xFF111827),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    IconButton(
+                                      tooltip: 'Voir',
+                                      visualDensity: VisualDensity.compact,
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                      ),
+                                      onPressed: () async {
+                                        final detailed = await controller
+                                            .fetchAssignmentById(
+                                          item.id,
+                                          documentId: item.documentId,
+                                        );
+                                        if (detailed == null) return;
+
+                                        Get.to(
+                                          () => AssignmentDetailsPage(
+                                            assignment: detailed,
+                                          ),
+                                        );
+                                      },
+                                      icon: const Icon(
+                                        Icons.remove_red_eye_outlined,
+                                        color: Color(0xFF6B7280),
+                                        size: 17,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Modifier',
+                                      visualDensity: VisualDensity.compact,
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                      ),
+                                      onPressed: () => Get.to(
+                                        () => AssignmentFormPage(
+                                          assignment: item,
+                                        ),
+                                      ),
+                                      icon: const Icon(
+                                        Icons.edit_outlined,
+                                        color: Color(0xFF111827),
+                                        size: 17,
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Supprimer',
+                                      visualDensity: VisualDensity.compact,
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                      ),
+                                      onPressed: () {
+                                        Get.defaultDialog(
+                                          title: 'Confirmer',
+                                          middleText: 'Supprimer ce devoir ?',
+                                          textCancel: 'Annuler',
+                                          textConfirm: 'Supprimer',
+                                          confirmTextColor: Colors.white,
+                                          buttonColor: const Color(0xFFD32F2F),
+                                          onConfirm: () async {
+                                            Get.back();
+                                            await controller.removeAssignment(
+                                              item.id,
+                                            );
+                                          },
+                                        );
+                                      },
+                                      icon: const Icon(
+                                        Icons.delete_outline,
+                                        color: Color(0xFFD32F2F),
+                                        size: 17,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
                     }
 
                     return ListView.separated(
@@ -374,21 +572,27 @@ class _AssignmentsListContentState extends State<_AssignmentsListContent> {
     );
   }
 
-  Widget _buildStudentContent(AssignmentsController controller) {
+  Widget _buildStudentContent(
+      AssignmentsController controller, bool isCompact) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(Icons.assignment_outlined, color: Color(0xFF3B82F6), size: 28),
-            SizedBox(width: 10),
-            Text(
-              'Mes Devoirs',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF111827),
-                height: 1.2,
+            const Icon(Icons.assignment_outlined,
+                color: Color(0xFF3B82F6), size: 28),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Mes Devoirs',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: isCompact ? 22 : 24,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF111827),
+                  height: 1.2,
+                ),
               ),
             ),
           ],
@@ -457,57 +661,66 @@ class _AssignmentsListContentState extends State<_AssignmentsListContent> {
               separatorBuilder: (_, __) => const SizedBox(height: 16),
               itemBuilder: (_, index) {
                 final item = rows[index];
-                final now = DateTime.now();
-                final isOverdue = item.dueDate.isBefore(now);
-                final statusText = isOverdue ? 'En retard' : 'À faire';
-                final statusBg = isOverdue
-                    ? const Color(0xFFFEF3C7)
-                    : const Color(0xFFFEF3C7);
-                final statusFg = isOverdue
-                    ? const Color(0xFFEA580C)
-                    : const Color(0xFFEA580C);
+                final hasSubmission = controller.hasStudentSubmission(item);
+                final statusText = controller.studentStatusFor(item);
+
+                Color statusBg;
+                Color statusFg;
+                switch (statusText) {
+                  case 'Soumis':
+                    statusBg = const Color(0xFFDCFCE7);
+                    statusFg = const Color(0xFF15803D);
+                    break;
+                  case 'A faire':
+                    statusBg = const Color(0xFFDBEAFE);
+                    statusFg = const Color(0xFF1D4ED8);
+                    break;
+                  case 'Expire':
+                    statusBg = const Color(0xFFFEE2E2);
+                    statusFg = const Color(0xFFB91C1C);
+                    break;
+                  case 'En retard':
+                  default:
+                    statusBg = const Color(0xFFFEF3C7);
+                    statusFg = const Color(0xFFEA580C);
+                    break;
+                }
 
                 return Container(
-                  padding: const EdgeInsets.all(20),
+                  padding: EdgeInsets.all(isCompact ? 16 : 20),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(12),
                     border:
                         Border.all(color: const Color(0xFFE5E7EB), width: 1),
                   ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
+                  child: isCompact
+                      ? Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
+                                      horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFDCEEFD),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
-                                  child: const Text(
-                                    'TEST',
-                                    style: TextStyle(
+                                  child: Text(
+                                    item.courseName,
+                                    style: const TextStyle(
                                       color: Color(0xFF3B82F6),
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.3,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
+                                      horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: statusBg,
                                     borderRadius: BorderRadius.circular(6),
@@ -518,7 +731,6 @@ class _AssignmentsListContentState extends State<_AssignmentsListContent> {
                                       color: statusFg,
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.3,
                                     ),
                                   ),
                                 ),
@@ -527,24 +739,19 @@ class _AssignmentsListContentState extends State<_AssignmentsListContent> {
                             const SizedBox(height: 12),
                             Text(
                               item.title,
-                              maxLines: 1,
+                              maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 20,
+                                fontSize: 19,
                                 fontWeight: FontWeight.w700,
                                 color: Color(0xFF111827),
-                                height: 1.3,
                               ),
                             ),
                             const SizedBox(height: 10),
-                            Row(
+                            Wrap(
+                              spacing: 16,
+                              runSpacing: 8,
                               children: [
-                                const Icon(
-                                  Icons.calendar_today_outlined,
-                                  size: 16,
-                                  color: Color(0xFF6B7280),
-                                ),
-                                const SizedBox(width: 6),
                                 Text(
                                   'Échéance: ${_formatDate(item.dueDate)}',
                                   style: const TextStyle(
@@ -552,13 +759,6 @@ class _AssignmentsListContentState extends State<_AssignmentsListContent> {
                                     color: Color(0xFF6B7280),
                                   ),
                                 ),
-                                const SizedBox(width: 20),
-                                const Icon(
-                                  Icons.star_border,
-                                  size: 16,
-                                  color: Color(0xFF6B7280),
-                                ),
-                                const SizedBox(width: 6),
                                 Text(
                                   '${item.maxPoints} Points',
                                   style: const TextStyle(
@@ -568,75 +768,196 @@ class _AssignmentsListContentState extends State<_AssignmentsListContent> {
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 24),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          SizedBox(
-                            width: 42,
-                            height: 42,
-                            child: IconButton(
-                              tooltip: _hasAttachment(item)
-                                  ? 'Télécharger le devoir'
-                                  : 'Aucun document à télécharger',
-                              onPressed: () => _downloadAssignmentAttachment(
-                                  controller, item),
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: const Color(0xFF3B82F6),
-                                side: const BorderSide(
-                                  color: Color(0xFFD1D5DB),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 42,
+                                  height: 42,
+                                  child: IconButton(
+                                    tooltip: _hasAttachment(item)
+                                        ? 'Télécharger le devoir'
+                                        : 'Aucun document à télécharger',
+                                    onPressed: () =>
+                                        _downloadAssignmentAttachment(
+                                            controller, item),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: const Color(0xFF3B82F6),
+                                      side: const BorderSide(
+                                        color: Color(0xFFD1D5DB),
+                                      ),
+                                    ),
+                                    icon: const Icon(Icons.download_rounded,
+                                        size: 20),
+                                  ),
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              icon:
-                                  const Icon(Icons.download_rounded, size: 20),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          SizedBox(
-                            height: 42,
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                await _openSubmissionFlow(controller, item);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF3B82F6),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 10,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Soumettre',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w600,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 42,
+                                    child: ElevatedButton(
+                                      onPressed: () async {
+                                        await _openSubmissionFlow(
+                                            controller, item);
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor:
+                                            const Color(0xFF3B82F6),
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                      ),
+                                      child: Text(
+                                        hasSubmission
+                                            ? 'Voir soumission'
+                                            : 'Soumettre',
+                                      ),
                                     ),
                                   ),
-                                  SizedBox(width: 6),
-                                  Icon(Icons.chevron_right, size: 20),
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      : Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFDCEEFD),
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          item.courseName,
+                                          style: const TextStyle(
+                                            color: Color(0xFF3B82F6),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: statusBg,
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          statusText,
+                                          style: TextStyle(
+                                            color: statusFg,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    item.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF111827),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Échéance: ${_formatDate(item.dueDate)}',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 20),
+                                      Text(
+                                        '${item.maxPoints} Points',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Color(0xFF6B7280),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ],
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                            const SizedBox(width: 24),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 42,
+                                  height: 42,
+                                  child: IconButton(
+                                    tooltip: _hasAttachment(item)
+                                        ? 'Télécharger le devoir'
+                                        : 'Aucun document à télécharger',
+                                    onPressed: () =>
+                                        _downloadAssignmentAttachment(
+                                            controller, item),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      foregroundColor: const Color(0xFF3B82F6),
+                                      side: const BorderSide(
+                                          color: Color(0xFFD1D5DB)),
+                                    ),
+                                    icon: const Icon(Icons.download_rounded,
+                                        size: 20),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                SizedBox(
+                                  height: 42,
+                                  child: ElevatedButton(
+                                    onPressed: () async {
+                                      await _openSubmissionFlow(
+                                          controller, item);
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF3B82F6),
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          hasSubmission
+                                              ? 'Voir soumission'
+                                              : 'Soumettre',
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        const Icon(Icons.chevron_right,
+                                            size: 20),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                 );
               },
             );

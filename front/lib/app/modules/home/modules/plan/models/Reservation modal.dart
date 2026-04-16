@@ -154,7 +154,7 @@ class _ReservationModalState extends State<ReservationModal>
     if (raw == null) return '';
     final text = raw.toString().trim();
     if (text.isEmpty) return '';
-    final parsed = DateTime.tryParse(text);
+    final parsed = DateTime.tryParse(text)?.toLocal();
     if (parsed != null) return DateFormat('HH:mm').format(parsed);
     if (text.length >= 5 && text.contains(':')) return text.substring(0, 5);
     return '';

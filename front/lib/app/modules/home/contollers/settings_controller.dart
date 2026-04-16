@@ -99,8 +99,11 @@ class SettingsController extends GetxController {
     isSavingPassword.value = true;
 
     try {
-      // Placeholder API call for future password update endpoint.
-      await Future<void>.delayed(const Duration(milliseconds: 350));
+      await _auth.changePassword(
+        currentPassword: current,
+        newPassword: next,
+        confirmPassword: confirm,
+      );
 
       Get.snackbar(
         'Sécurité',
@@ -108,6 +111,12 @@ class SettingsController extends GetxController {
         snackPosition: SnackPosition.BOTTOM,
       );
       cancelPasswordChange();
+    } catch (e) {
+      Get.snackbar(
+        'Sécurité',
+        e.toString().replaceFirst('Exception: ', ''),
+        snackPosition: SnackPosition.BOTTOM,
+      );
     } finally {
       isSavingPassword.value = false;
     }

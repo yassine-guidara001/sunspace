@@ -1,6 +1,7 @@
 const associationsService = require('../services/associations.service');
+const { MANAGER_ROLES, ROLES } = require('../utils/roles');
 
-const managerRoles = ['ADMIN', 'TEACHERDIRECTOR', 'Association', 'Admin', 'Gestionnaire d\'espace'];
+const managerRoles = [...MANAGER_ROLES, ROLES.ASSOCIATION];
 
 class AssociationsController {
   async getAllAssociations(req, res, next) {

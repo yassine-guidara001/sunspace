@@ -131,6 +131,17 @@ class AssignmentsController extends GetxController {
     }
   }
 
+  Future<List<Map<String, dynamic>>> fetchSubmittedStudentsForAssignment(
+      int assignmentId) async {
+    try {
+      return await _api.getSubmissionsForAssignmentWithStudents(assignmentId);
+    } catch (e) {
+      final message = _normalizeError(e);
+      errorMessage.value = message;
+      return const <Map<String, dynamic>>[];
+    }
+  }
+
   bool hasStudentSubmission(Assignment assignment) {
     return (studentSubmissionCountByAssignment[assignment.id] ?? 0) > 0;
   }

@@ -118,8 +118,8 @@ class _StudentFloorPlanPageState extends State<StudentFloorPlanPage> {
       height: _toDoubleValue(s['height']),
       features: s['features']?.toString(),
       imageUrl: s['imageUrl']?.toString(),
-      createdAt: DateTime.tryParse(s['createdAt']?.toString() ?? ''),
-      updatedAt: DateTime.tryParse(s['updatedAt']?.toString() ?? ''),
+      createdAt: DateTime.tryParse(s['createdAt']?.toString() ?? '')?.toLocal(),
+      updatedAt: DateTime.tryParse(s['updatedAt']?.toString() ?? '')?.toLocal(),
     );
   }
 

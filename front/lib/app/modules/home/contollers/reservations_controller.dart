@@ -119,6 +119,7 @@ class ReservationModel {
   final String userRole;
   final String? userType;
   final DateTime dateTime;
+  final DateTime? endDateTime;
   final double amount;
   final String status;
   final String paymentMethod;
@@ -133,6 +134,7 @@ class ReservationModel {
     this.userRole = '',
     this.userType,
     required this.dateTime,
+    this.endDateTime,
     required this.amount,
     required this.status,
     this.paymentMethod = '',
@@ -193,6 +195,10 @@ class ReservationModel {
             attrs['createdAt'],
           ]) ??
           DateTime.now(),
+      endDateTime: _parseDate([
+        attrs['end_datetime'],
+        attrs['endDate'],
+      ]),
       amount: _toDouble(
           attrs['total_amount'] ?? attrs['amount'] ?? attrs['totalAmount']),
       status: _firstNonEmptyString([
@@ -243,7 +249,7 @@ class ReservationModel {
     for (final c in candidates) {
       if (c == null) continue;
       final p = DateTime.tryParse(c.toString());
-      if (p != null) return p;
+      if (p != null) return p.toLocal();
     }
     return null;
   }

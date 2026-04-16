@@ -1,0 +1,499 @@
+SUNSPACE - DOCUMENTATION COMPLETE (tables, relations, fonctions, variables)
+Date: 2026-04-13
+Source principale: backend/prisma/schema.prisma + backend/src/index.js + controllers/routes/services
+
+============================================================
+1) VUE D ENSEMBLE APP
+============================================================
+Architecture backend:
+- Framework: Express.js
+- ORM: Prisma
+- Base de donnees: MySQL
+- Auth: JWT (middleware auth)
+- Prefix API global: /api
+
+Routes principales montees dans backend/src/index.js:
+- /api/auth
+- /api/users
+- /api/spaces
+- /api/equipment-assets (alias)
+- /api/equipments (alias)
+- /api/associations
+- /api/courses
+- /api/training-sessions
+- /api/sessions (alias)
+- /api/assignments
+- /api/submissions
+- /api/enrollments
+- /api/upload
+- /api/reservations
+- /api/notifications
+- /api/communication
+
+============================================================
+2) ENUMS (valeurs controlees)
+============================================================
+2.1 UserRole (metier)
+- ADMIN
+- ENSEIGNANT
+- ETUDIANT
+- PROFESSIONNEL
+- ASSOCIATION
+- GESTIONNAIRE_ESPACE
+
+2.2 ReservationStatus
+- PENDING
+- CONFIRMED
+- REJECTED
+- CANCELLED
+- COMPLETED
+
+2.3 NotificationType
+- RESERVATION_CONFIRMATION
+- RESERVATION_REMINDER_24H
+- RESERVATION_REMINDER_1H
+- RESERVATION_MODIFIED
+- RESERVATION_CANCELLED
+- NEW_COURSE_AVAILABLE
+- TRAINING_SESSION_STARTED
+- TEACHER_MESSAGE
+- SUBSCRIPTION_PAYMENT_DUE
+- PROMOTION_OFFER
+
+============================================================
+3) TABLES + VARIABLES + RELATIONS
+============================================================
+
+3.1 User
+Variables cle:
+- id, username, email, password
+- role, confirmed, blocked
+- createdAt, updatedAt
+Relations:
+- 1 user -> N reservations
+- 1 user -> N teamMembers
+- 1 user -> N coursesAsInstructor
+- 1 user -> N assignmentsAsInstructor
+- 1 user -> N submissions
+- 1 user -> N enrollments
+- 1 user -> N trainingSessionsAsInstructor
+- 1 user -> N trainingSessionsAttending
+- 1 user -> N associations (comme admin)
+- 1 user -> N associationMemberships
+- 1 user -> N notifications
+- 1 user -> N private messages envoyes + recus
+- 1 user -> N forum threads + N forum replies
+
+3.2 PrivateMessage
+Variables cle:
+- id, senderId, recipientId
+- subject, body, isRead, readAt
+- createdAt, updatedAt
+Relations:
+- N messages -> 1 sender (User)
+- N messages -> 1 recipient (User)
+
+3.3 ForumThread
+Variables cle:
+- id, authorId, title, body, tags(JSON), status
+- createdAt, updatedAt
+Relations:
+- N threads -> 1 author (User)
+- 1 thread -> N replies
+
+3.4 ForumReply
+Variables cle:
+- id, threadId, authorId
+- body, likeCount, helpfulCount
+- isValidated, validatedAt, validatedById
+- createdAt, updatedAt
+Relations:
+- N replies -> 1 thread
+- N replies -> 1 author
+- optionnel: N replies -> 1 validator(User)
+
+3.5 Space
+Variables cle:
+- id, slug(unique), name, type
+- description, location, floor
+- capacity, surface, width, height
+- status
+- hourlyRate, dailyRate, monthlyRate, overtimeRate, currency
+- isCoworkingSpace, allowLimitedReservations, available24h
+- features(JSON texte), imageUrl
+- createdAt, updatedAt
+Relations:
+- 1 space -> N reservations
+- 1 space -> N openingHours
+- N spaces <-> N equipments via SpaceEquipment
+
+3.6 Equipment
+Variables cle:
+- id, name, type, mystatus
+- serialNumber, purchaseDate, purchasePrice, pricePerDay
+- warrantyExpiry, description, notes
+- quantity, available, imageUrl
+- createdAt, updatedAt
+Relations:
+- N equipments <-> N spaces via SpaceEquipment
+
+3.7 SpaceEquipment (table pivot)
+Variables cle:
+- id, spaceId, equipmentId, quantity
+Contrainte:
+- unique(spaceId, equipmentId)
+Relations:
+- N lignes -> 1 space
+- N lignes -> 1 equipment
+
+3.8 OpeningHour
+Variables cle:
+- id, spaceId
+- dayOfWeek (0..6), openTime, closeTime, closed
+Contrainte:
+- unique(spaceId, dayOfWeek)
+Relation:
+- N openingHours -> 1 space
+
+3.9 Reservation
+Variables cle:
+- id, userId, spaceId
+- status (ReservationStatus)
+- startDateTime, endDateTime
+- organizerName, organizerPhone
+- attendees, isAllDay
+- totalAmount, paymentMethod, paymentStatus
+- notes
+- createdAt, updatedAt
+Relations:
+- N reservations -> 1 user
+- N reservations -> 1 space
+- 1 reservation -> N notifications
+
+3.10 Course
+Variables cle:
+- id, title, description
+- level, price, status
+- instructorId
+- createdAt, updatedAt
+Relations:
+- N courses -> 0..1 instructor(User)
+- 1 course -> N teams
+- 1 course -> N training sessions
+- 1 course -> N assignments
+- 1 course -> N enrollments
+- 1 course -> N notifications
+
+3.11 Team
+Variables cle:
+- id, name, courseId
+- createdAt, updatedAt
+Relations:
+- N teams -> 1 course
+- 1 team -> N members
+
+3.12 TeamMember
+Variables cle:
+- id, userId, teamId, role
+Contrainte:
+- unique(userId, teamId)
+Relations:
+- N teamMembers -> 1 user
+- N teamMembers -> 1 team
+
+3.13 TrainingSession
+Variables cle:
+- id, courseId, title, type
+- maxParticipants
+- startDate, endDate
+- meetingUrl
+- mystatus, notes, description
+- instructorId
+- createdAt, updatedAt
+Relations:
+- N sessions -> 0..1 course
+- N sessions -> 0..1 instructor(User)
+- 1 session -> N attendees (pivot)
+- 1 session -> N notifications
+
+3.14 TrainingSessionAttendee (table pivot)
+Variables cle:
+- id, sessionId, userId, createdAt
+Contraintes:
+- unique(sessionId, userId)
+Relations:
+- N lignes -> 1 session
+- N lignes -> 1 user
+
+3.15 Assignment
+Variables cle:
+- id, title, description
+- dueDate, maxPoints, passingScore, allowLateSubmission
+- attachment, attachmentUrl, attachmentName
+- courseId, instructorId
+- createdAt, updatedAt
+Relations:
+- N assignments -> 0..1 course
+- N assignments -> 0..1 instructor(User)
+- 1 assignment -> N submissions
+
+3.16 Submission
+Variables cle:
+- id, assignmentId, studentId
+- content, grade, status, submittedAt
+- createdAt, updatedAt
+Contraintes:
+- unique(assignmentId, studentId)
+Relations:
+- N submissions -> 1 assignment
+- N submissions -> 1 student(User)
+
+3.17 Enrollment
+Variables cle:
+- id, studentId, courseId
+- mystatus, enrolledAt
+- createdAt, updatedAt
+Contraintes:
+- unique(studentId, courseId)
+Relations:
+- N enrollments -> 1 user(student)
+- N enrollments -> 1 course
+
+3.18 Association
+Variables cle:
+- id, name, description
+- email, phone, website
+- budget, currency, verified, logoUrl
+- adminId
+- createdAt, updatedAt
+Relations:
+- N associations -> 0..1 admin(User)
+- 1 association -> N members
+
+3.19 AssociationMember
+Variables cle:
+- id, associationId, userId, role, joinedAt
+Contrainte:
+- unique(associationId, userId)
+Relations:
+- N membres -> 1 association
+- N membres -> 1 user
+
+3.20 Notification
+Variables cle:
+- id, userId
+- type (NotificationType)
+- title, body, data(JSON)
+- isRead, readAt
+- reservationId, courseId, sessionId (optionnels)
+- createdAt, updatedAt
+Relations:
+- N notifications -> 1 user
+- N notifications -> 0..1 reservation
+- N notifications -> 0..1 course
+- N notifications -> 0..1 training session
+
+============================================================
+4) RELATIONS IMPORTANTES (lecture rapide)
+============================================================
+- User est la table centrale (auth + profils + acteur metier).
+- Reservation relie User et Space.
+- Course relie Instructor(User), Assignments, Sessions, Enrollments.
+- TrainingSessionAttendee est le pivot Session<->User.
+- TeamMember est le pivot Team<->User.
+- SpaceEquipment est le pivot Space<->Equipment.
+- AssociationMember est le pivot Association<->User.
+- Notification peut pointer vers Reservation/Course/Session pour contexte.
+
+============================================================
+5) FONCTIONS BACKEND (controllers)
+============================================================
+
+5.1 AuthController
+- register
+- login
+- getMe
+- logout
+
+5.2 UsersController
+- getAllUsers
+- getCurrentUser
+- getUserById
+- createUser
+- updateUser
+- deleteUser
+
+5.3 SpacesController
+- getAllSpaces
+- getSpaceById
+- createSpace
+- updateSpace
+- deleteSpace
+
+5.4 EquipmentController
+- getAllEquipments
+- getEquipmentById
+- createEquipment
+- updateEquipment
+- deleteEquipment
+
+5.5 AssociationsController
+- getAllAssociations
+- getAssociationById
+- createAssociation
+- updateAssociation
+- deleteAssociation
+
+5.6 CoursesController
+- getAllCourses
+- getCourseById
+- createCourse
+- updateCourse
+- deleteCourse
+
+5.7 TrainingSessionsController
+- getAll
+- getById
+- create
+- update
+- remove
+
+5.8 AssignmentsController
+- getAll
+- getById
+- create
+- update
+- delete
+
+5.9 SubmissionsController
+- getAll
+- create
+
+5.10 EnrollmentsController
+- getAll
+- create
+- delete
+
+5.11 ReservationsController
+- getAll
+- create
+- update
+- remove
+
+5.12 NotificationsController
+- getUserNotifications
+- getUnreadCount
+- markAsRead
+- markAllAsRead
+- deleteNotification
+- deleteReadNotifications
+
+5.13 CommunicationController
+- getRecipients
+- sendPrivateMessage
+- getPrivateMessages
+- markPrivateMessageRead
+- createForumThread
+- getForumThreads
+- addForumReply
+- addForumReplyAlias
+- updateForumThreadStatus
+- validateForumReply
+- reactToForumReply
+- getSimilarForumThreads
+- improveForumDraft
+- getForumNotifications
+- closeForumThread
+
+5.14 UploadController
+- upload
+
+============================================================
+6) FONCTIONS METIER CRITIQUES (NotificationService)
+============================================================
+Fonctions cle:
+- createNotification
+- getUserNotifications
+- getUnreadCount
+- markAsRead
+- markAllAsRead
+- deleteNotification
+- deleteReadNotifications
+
+Fonctions evenementielles:
+- notifyReservationConfirmation
+- notifyReservationReminder
+- notifyReservationModified
+- notifyReservationCancelled
+- notifyNewCourseAvailable
+- notifyTrainingSessionStarted
+- notifyTrainingSessionEnrollment
+
+Fonctions planification/maintenance:
+- scheduleTrainingSessionStartNotification
+- clearTrainingSessionStartNotification
+- processDueTrainingSessionStarts
+- backfillMissingTrainingSessionStarts
+- processDueReservationReminders
+- backfillMissingReservationConfirmations
+- cleanupLegacyStudentEnrollmentNotifications
+
+============================================================
+7) VARIABLES TECHNIQUES IMPORTANTES
+============================================================
+Dans backend/src/index.js et .env:
+- DATABASE_URL: connexion MySQL Prisma
+- NODE_ENV: development/production
+- PORT: port serveur (defaut 3001)
+- CORS_ORIGIN: origines autorisees en production
+- RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX
+- LOGIN_RATE_LIMIT_WINDOW_MS, LOGIN_RATE_LIMIT_MAX
+- ENABLE_DEV_RATE_LIMIT
+
+Variables runtime utiles:
+- req.user.id (apres auth middleware)
+- req.params.id (ressource cible)
+- req.query (pagination/filtrage, ex: notifications skip/take/isRead/type)
+
+============================================================
+8) COMMENT PARLER CORRECTEMENT A TON APP (API)
+============================================================
+1) Authentifie toi d abord:
+- POST /api/auth/login
+- Recupere le token JWT
+
+2) Envoie toujours le token:
+- Header: Authorization: Bearer <token>
+- Content-Type: application/json
+
+3) Respecte les types:
+- IDs en nombre (ex: 12)
+- Dates ISO (ex: 2026-04-13T10:00:00.000Z)
+- Booleens vrais/faux (true/false)
+
+4) Pagination et filtres:
+- skip et take pour paginer
+- Exemple notifications: /api/notifications?skip=0&take=20&isRead=false&type=RESERVATION_REMINDER_24H
+
+5) Flow exemple notifications:
+- GET /api/notifications/unread-count
+- GET /api/notifications
+- PATCH /api/notifications/:id/read
+- PATCH /api/notifications/read-all
+- DELETE /api/notifications/:id
+
+6) En cas d erreur:
+- 401: non authentifie
+- 403: non autorise
+- 404: ressource introuvable
+- 422/400: validation des donnees
+- 500: erreur serveur
+
+============================================================
+9) CONSEIL PRATIQUE POUR DOCUMENTATION CONTINUE
+============================================================
+- Si tu ajoutes une table Prisma, mets a jour ce fichier.
+- Si tu ajoutes une route controller/service, ajoute la section fonction.
+- Garde une convention: Table -> Variables -> Relations -> Endpoints.
+
+FIN
