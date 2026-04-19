@@ -40,16 +40,21 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
 
   final _cardHolderController = TextEditingController();
   final _cardNumberController = TextEditingController();
-  final _expiryController = TextEditingController();
+  final _monthController = TextEditingController();
+  final _yearController = TextEditingController();
   final _cvcController = TextEditingController();
+  final _emailController = TextEditingController();
   bool _isLoading = false;
+  bool _sendEmailReceipt = true;
 
   @override
   void dispose() {
     _cardHolderController.dispose();
     _cardNumberController.dispose();
-    _expiryController.dispose();
+    _monthController.dispose();
+    _yearController.dispose();
     _cvcController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -115,6 +120,13 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
         throw Exception('Cet espace est ouvert uniquement de 09:00 à 18:00');
       }
 
+      final alreadyExists =
+          await _hasExistingOverlappingReservation(startDateTime, endDateTime);
+      if (alreadyExists) {
+        _showReservationAlreadySaved();
+        return;
+      }
+
       final localStartDt = _toLocalApiDateTime(startDateTime);
       final endDt = _toLocalApiDateTime(endDateTime);
 
@@ -153,8 +165,19 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
         // Retour à l'accueil après succès
         Get.until((route) => route.isFirst);
       } else {
-        final body = jsonDecode(response.body);
-        throw Exception(body['error']?['message'] ?? '${response.statusCode}');
+        final message = _extractApiErrorMessage(response);
+
+        if (response.statusCode == 400 &&
+            message.toLowerCase().contains('indisponible sur ce créneau')) {
+          final existsAfterCheck = await _hasExistingOverlappingReservation(
+              startDateTime, endDateTime);
+          if (existsAfterCheck) {
+            _showReservationAlreadySaved();
+            return;
+          }
+        }
+
+        throw Exception(message);
       }
     } catch (e) {
       Get.snackbar(
@@ -167,6 +190,94 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<bool> _hasExistingOverlappingReservation(
+    DateTime targetStart,
+    DateTime targetEnd,
+  ) async {
+    try {
+      final dateFilter =
+          '${targetStart.year.toString().padLeft(4, '0')}-${targetStart.month.toString().padLeft(2, '0')}-${targetStart.day.toString().padLeft(2, '0')}';
+
+      final uri = Uri.parse('$_baseUrl/reservations').replace(
+        queryParameters: {
+          'filters[space][id][\$eq]': widget.space.id.toString(),
+          'filters[start_datetime][\$contains]': dateFilter,
+        },
+      );
+
+      final response = await http.get(uri, headers: _headers);
+      if (response.statusCode != 200) return false;
+
+      final decoded = jsonDecode(response.body);
+      final list = decoded is Map<String, dynamic>
+          ? (decoded['data'] as List<dynamic>? ?? const <dynamic>[])
+          : const <dynamic>[];
+
+      for (final item in list) {
+        if (item is! Map<String, dynamic>) continue;
+
+        final status = (item['status'] ?? '').toString().toUpperCase();
+        if (status != 'PENDING' && status != 'CONFIRMED') {
+          continue;
+        }
+
+        final space = item['space'];
+        final reservationSpaceId =
+            space is Map<String, dynamic> ? space['id'] : null;
+        if (reservationSpaceId == null ||
+            reservationSpaceId.toString() != widget.space.id.toString()) {
+          continue;
+        }
+
+        final start =
+            DateTime.tryParse((item['start_datetime'] ?? '').toString());
+        final end = DateTime.tryParse((item['end_datetime'] ?? '').toString());
+        if (start == null || end == null) continue;
+
+        final overlaps = start.isBefore(targetEnd) && end.isAfter(targetStart);
+        if (overlaps) return true;
+      }
+    } catch (_) {
+      return false;
+    }
+
+    return false;
+  }
+
+  String _extractApiErrorMessage(http.Response response) {
+    try {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        final error = decoded['error'];
+        if (error is Map<String, dynamic>) {
+          final message = error['message'];
+          if (message != null && message.toString().trim().isNotEmpty) {
+            return message.toString();
+          }
+        }
+        final message = decoded['message'];
+        if (message != null && message.toString().trim().isNotEmpty) {
+          return message.toString();
+        }
+      }
+    } catch (_) {
+      // Ignore parsing errors and fallback below.
+    }
+    return 'Erreur serveur (${response.statusCode})';
+  }
+
+  void _showReservationAlreadySaved() {
+    Get.snackbar(
+      'Réservation déjà enregistrée',
+      'Ce créneau est déjà réservé. Redirection vers l\'accueil.',
+      snackPosition: SnackPosition.BOTTOM,
+      backgroundColor: const Color(0xFF0EA5E9),
+      colorText: Colors.white,
+      duration: const Duration(seconds: 3),
+    );
+    Get.until((route) => route.isFirst);
   }
 
   bool _isWithinOpeningHours(DateTime value) {
@@ -235,6 +346,8 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
     if (_price <= 0) return '-- $code';
     return '${_price.toStringAsFixed(0)} $code';
   }
+
+  String get _gatewayPriceLabel => '${_price.toStringAsFixed(3)} TND';
 
   @override
   Widget build(BuildContext context) {
@@ -361,105 +474,85 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDCE4EF)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: const [
           BoxShadow(
-              color: Color(0x120F172A), blurRadius: 20, offset: Offset(0, 6))
+              color: Color(0x120F172A), blurRadius: 16, offset: Offset(0, 4))
         ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Header
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
-          decoration: const BoxDecoration(
-            color: Color(0xFFF8FAFC),
-            borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(18), topRight: Radius.circular(18)),
-          ),
-          child: Row(children: [
-            const Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('PAIEMENT SECURISE',
-                        style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                            color: Color(0xFF0F172A))),
-                    SizedBox(height: 4),
-                    Text('Vos données sont cryptées et protégées.',
-                        style:
-                            TextStyle(color: Color(0xFF64748B), fontSize: 12)),
-                  ]),
-            ),
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                  color: const Color(0xFFE8F1FF),
-                  borderRadius: BorderRadius.circular(12)),
-              child: const Icon(Icons.shield_outlined,
-                  color: Color(0xFF60A5FA), size: 26),
-            ),
-          ]),
-        ),
-        // Fields
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-          child:
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            _label('Nom sur la carte'),
-            const SizedBox(height: 6),
-            _textInput(
-                controller: _cardHolderController, hint: 'Ex. Jean Dupont'),
-            const SizedBox(height: 10),
-            _label('Numéro de carte'),
-            const SizedBox(height: 6),
-            _textInput(
-              controller: _cardNumberController,
-              hint: '1234 5678 9012 3456',
-              prefix: const Icon(Icons.credit_card,
-                  size: 16, color: Color(0xFF64748B)),
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(16),
-                _CardNumberFormatter(),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(children: [
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    _label("Date d'expiration"),
-                    const SizedBox(height: 6),
-                    _textInput(
-                      controller: _expiryController,
-                      hint: 'MM/AA',
-                      textAlign: TextAlign.center,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildGatewayLogoHeader(),
+              const SizedBox(height: 14),
+              const Text(
+                'Paiement sécurisé',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF111827),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Réservation de l\'espace : ${widget.space.name}',
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF374151),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _textInput(
+                controller: _cardNumberController,
+                hint: 'Numéro de la carte',
+                prefix: const Icon(Icons.credit_card,
+                    size: 16, color: Color(0xFF9CA3AF)),
+                keyboardType: TextInputType.number,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(16),
+                  _CardNumberFormatter(),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _textInput(
+                      controller: _monthController,
+                      hint: 'Mois',
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.left,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(2),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _textInput(
+                      controller: _yearController,
+                      hint: 'Année',
                       keyboardType: TextInputType.number,
                       inputFormatters: [
                         FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(4),
-                        _ExpiryDateFormatter(),
+                        LengthLimitingTextInputFormatter(2),
                       ],
                     ),
-                  ])),
-              const SizedBox(width: 10),
-              Expanded(
-                  child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                    _label('CVC'),
-                    const SizedBox(height: 6),
-                    _textInput(
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _textInput(
                       controller: _cvcController,
-                      hint: '...',
-                      textAlign: TextAlign.center,
+                      hint: 'Code de sûreté',
                       keyboardType: TextInputType.number,
                       obscureText: true,
                       obscuringCharacter: '.',
@@ -468,74 +561,104 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
                         LengthLimitingTextInputFormatter(3),
                       ],
                     ),
-                  ])),
-            ]),
-            const SizedBox(height: 14),
-            Container(
-              height: 36,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(
-                  color: const Color(0xFFFBFCFE),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE2E8F0))),
-              child: Row(children: [
-                _brandMastercard(),
-                const SizedBox(width: 10),
-                _brandVisa(),
-                const Spacer(),
-                const Text('PAIEMENT CRYPTÉ SSL 256 BITS',
-                    style: TextStyle(
-                        color: Color(0xFF64748B),
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700)),
-              ]),
-            ),
-          ]),
-        ),
-        // Footer
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-          decoration: const BoxDecoration(
-              border: Border(top: BorderSide(color: Color(0xFFE2E8F0)))),
-          child: Row(children: [
-            TextButton(
-              onPressed: Get.back,
-              style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF0F172A)),
-              child: const Text("Modifier l'offre",
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-            ),
-            const Spacer(),
-            SizedBox(
-              height: 44,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _pay,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1664FF),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation(Colors.white)))
-                    : Row(mainAxisSize: MainAxisSize.min, children: [
-                        const Icon(Icons.credit_card_outlined, size: 16),
-                        const SizedBox(width: 8),
-                        Text('Payer $_priceLabel',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w700, fontSize: 15)),
-                      ]),
+                  ),
+                ],
               ),
-            ),
-          ]),
+              const SizedBox(height: 10),
+              _textInput(
+                controller: _cardHolderController,
+                hint: 'Le nom du détenteur',
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () =>
+                    setState(() => _sendEmailReceipt = !_sendEmailReceipt),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: Checkbox(
+                        value: _sendEmailReceipt,
+                        onChanged: (value) =>
+                            setState(() => _sendEmailReceipt = value ?? false),
+                        activeColor: const Color(0xFF0B5FB3),
+                        checkColor: Colors.white,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        side: const BorderSide(
+                            color: Color(0xFF9CA3AF), width: 1),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Adresse e-mail',
+                      style: TextStyle(
+                        color: Color(0xFF374151),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              _textInput(
+                controller: _emailController,
+                hint: '',
+                keyboardType: TextInputType.emailAddress,
+                enabled: _sendEmailReceipt,
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _pay,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0B5FB3),
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          'Paiement $_gatewayPriceLabel',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildGatewayFooterBrands(),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: Get.back,
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF111827),
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                  ),
+                  child: const Text(
+                    "Modifier l'offre",
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ]),
     );
@@ -615,10 +738,6 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
     ]);
   }
 
-  Widget _label(String text) => Text(text,
-      style: const TextStyle(
-          color: Color(0xFF0F172A), fontSize: 12, fontWeight: FontWeight.w600));
-
   Widget _textInput({
     required TextEditingController controller,
     required String hint,
@@ -628,15 +747,17 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
     List<TextInputFormatter>? inputFormatters,
     bool obscureText = false,
     String obscuringCharacter = '*',
+    bool enabled = true,
   }) {
     return Container(
-      height: 42,
+      height: 40,
       decoration: BoxDecoration(
-          color: const Color(0xFFFBFCFE),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE2E8F0))),
+          color: enabled ? const Color(0xFFFFFFFF) : const Color(0xFFF3F4F6),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: const Color(0xFFD1D5DB))),
       child: TextField(
         controller: controller,
+        enabled: enabled,
         textAlign: textAlign,
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
@@ -650,49 +771,141 @@ class _StudentSpacePaymentViewState extends State<StudentSpacePaymentView> {
               color: Color(0xFF94A3B8), fontWeight: FontWeight.w500),
           prefixIcon: prefix,
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         ),
       ),
     );
   }
 
-  Widget _brandMastercard() {
-    return Row(children: [
-      SizedBox(
-        width: 18,
-        height: 12,
-        child: Stack(children: const [
-          Positioned(
-              left: 0,
-              child:
-                  CircleAvatar(radius: 6, backgroundColor: Color(0xFFEA4335))),
-          Positioned(
-              right: 0,
-              child:
-                  CircleAvatar(radius: 6, backgroundColor: Color(0xFFF59E0B))),
-        ]),
-      ),
-      const SizedBox(width: 4),
-      const Text('mastercard',
-          style: TextStyle(
-              color: Color(0xFF64748B),
-              fontSize: 10,
-              fontWeight: FontWeight.w600)),
-    ]);
+  Widget _buildGatewayLogoHeader() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF97316), Color(0xFFDC2626), Color(0xFF2563EB)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: const Icon(Icons.credit_card, color: Colors.white, size: 16),
+        ),
+        const SizedBox(width: 8),
+        const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'ClicToPay.com.tn',
+              style: TextStyle(
+                color: Color(0xFF0B4FA2),
+                fontSize: 28,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.2,
+              ),
+            ),
+            Text(
+              'by Monétique Tunisie',
+              style: TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
-  Widget _brandVisa() {
+  Widget _buildGatewayFooterBrands() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_outline, size: 16, color: Color(0xFF9CA3AF)),
+            SizedBox(width: 6),
+            Text(
+              'Paiement sécurisé',
+              style: TextStyle(
+                color: Color(0xFF9CA3AF),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        _brandMastercardChip(),
+        _paymentChip(label: 'VISA', color: const Color(0xFF1E3A8A)),
+        _paymentChip(label: 'C-Cash', color: const Color(0xFF6B7280)),
+        _paymentChip(label: 'e-DINAR', color: const Color(0xFF6B7280)),
+      ],
+    );
+  }
+
+  Widget _paymentChip({required String label, required Color color}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFFE2E8F0))),
-      child: const Text('visa',
-          style: TextStyle(
-              color: Color(0xFF1E40AF),
-              fontSize: 10,
-              fontWeight: FontWeight.w700)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFD1D5DB)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _brandMastercardChip() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFD1D5DB)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 18,
+            height: 12,
+            child: Stack(children: const [
+              Positioned(
+                  left: 0,
+                  child: CircleAvatar(
+                      radius: 6, backgroundColor: Color(0xFFEA4335))),
+              Positioned(
+                  right: 0,
+                  child: CircleAvatar(
+                      radius: 6, backgroundColor: Color(0xFFF59E0B))),
+            ]),
+          ),
+          const SizedBox(width: 5),
+          const Text(
+            'mastercard',
+            style: TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -733,17 +946,6 @@ class _CardNumberFormatter extends TextInputFormatter {
       buf.write(t[i]);
     }
     final f = buf.toString();
-    return TextEditingValue(
-        text: f, selection: TextSelection.collapsed(offset: f.length));
-  }
-}
-
-class _ExpiryDateFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(TextEditingValue o, TextEditingValue n) {
-    final digits = n.text.replaceAll(RegExp(r'\D'), '');
-    final t = digits.length > 4 ? digits.substring(0, 4) : digits;
-    final f = t.length > 2 ? '${t.substring(0, 2)}/${t.substring(2)}' : t;
     return TextEditingValue(
         text: f, selection: TextSelection.collapsed(offset: f.length));
   }

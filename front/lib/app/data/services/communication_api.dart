@@ -73,6 +73,57 @@ class CommunicationApi {
     }
   }
 
+  Future<Map<String, dynamic>> deleteOldMessages({
+    int days = 30,
+    int? recipientId,
+  }) async {
+    final query = <String, String>{
+      'days': days.toString(),
+      if (recipientId != null) 'recipientId': recipientId.toString(),
+    };
+
+    final uri =
+        Uri.parse('$_baseUrl/messages/old').replace(queryParameters: query);
+    final response = await http.delete(uri, headers: _auth.authHeaders);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic> && decoded['data'] is Map) {
+        return Map<String, dynamic>.from(decoded['data'] as Map);
+      }
+      return const <String, dynamic>{};
+    }
+
+    throw Exception(_extractErrorMessage(
+        response.body, 'Impossible de supprimer les anciens messages'));
+  }
+
+  Future<Map<String, dynamic>> deleteMessages({
+    int? recipientId,
+  }) async {
+    final query = <String, String>{
+      if (recipientId != null) 'recipientId': recipientId.toString(),
+    };
+
+    final uri = Uri.parse('$_baseUrl/messages').replace(
+      queryParameters: query.isEmpty ? null : query,
+    );
+    final response = await http.delete(uri, headers: _auth.authHeaders);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic> && decoded['data'] is Map) {
+        return Map<String, dynamic>.from(decoded['data'] as Map);
+      }
+      return const <String, dynamic>{};
+    }
+
+    throw Exception(
+      _extractErrorMessage(
+          response.body, 'Impossible de supprimer les messages'),
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getThreads() async {
     final response = await http.get(
       Uri.parse('$_baseUrl/forum/threads?take=50'),
@@ -228,6 +279,47 @@ class CommunicationApi {
     }
   }
 
+  Future<Map<String, dynamic>> deleteOldForumThreads({
+    int days = 30,
+  }) async {
+    final uri = Uri.parse('$_baseUrl/forum/threads/old').replace(
+      queryParameters: {'days': days.toString()},
+    );
+
+    final response = await http.delete(uri, headers: _auth.authHeaders);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic> && decoded['data'] is Map) {
+        return Map<String, dynamic>.from(decoded['data'] as Map);
+      }
+      return const <String, dynamic>{};
+    }
+
+    throw Exception(
+      _extractErrorMessage(
+          response.body, 'Impossible de nettoyer les discussions anciennes'),
+    );
+  }
+
+  Future<Map<String, dynamic>> deleteForumThreads() async {
+    final uri = Uri.parse('$_baseUrl/forum/threads');
+    final response = await http.delete(uri, headers: _auth.authHeaders);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic> && decoded['data'] is Map) {
+        return Map<String, dynamic>.from(decoded['data'] as Map);
+      }
+      return const <String, dynamic>{};
+    }
+
+    throw Exception(
+      _extractErrorMessage(
+          response.body, 'Impossible de supprimer les discussions'),
+    );
+  }
+
   Future<List<Map<String, dynamic>>> getForumNotifications() async {
     final response = await http.get(
       Uri.parse('$_baseUrl/forum/notifications?take=20'),
@@ -247,6 +339,39 @@ class CommunicationApi {
 
     throw Exception(_extractErrorMessage(
         response.body, 'Impossible de charger les notifications forum'));
+  }
+
+  Future<Map<String, dynamic>> chatWithSunspaceAssistant({
+    required String message,
+    Map<String, dynamic>? session,
+    List<Map<String, String>>? history,
+    String? profile,
+    String? systemPrompt,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$_baseUrl/assistant/chat'),
+      headers: _auth.authHeaders,
+      body: jsonEncode({
+        'message': message,
+        if (session != null) 'session': session,
+        if (history != null) 'history': history,
+        if (profile != null && profile.trim().isNotEmpty)
+          'profile': profile.trim(),
+        if (systemPrompt != null && systemPrompt.trim().isNotEmpty)
+          'systemPrompt': systemPrompt.trim(),
+      }),
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic> && decoded['data'] is Map) {
+        return Map<String, dynamic>.from(decoded['data'] as Map);
+      }
+      return const <String, dynamic>{};
+    }
+
+    throw Exception(_extractErrorMessage(
+        response.body, 'Impossible de joindre l\'assistant SunSpace'));
   }
 
   String _extractErrorMessage(String rawBody, String fallback) {

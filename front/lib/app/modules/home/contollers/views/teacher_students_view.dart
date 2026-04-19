@@ -236,11 +236,8 @@ class TeacherStudentsView extends GetView<TeacherStudentsController> {
                                               ),
                                               Expanded(
                                                 flex: 2,
-                                                child: Text(
-                                                  '${row.progressPercent}%',
-                                                  style: const TextStyle(
-                                                    color: _title,
-                                                  ),
+                                                child: _ProgressCell(
+                                                  percent: row.progressPercent,
                                                 ),
                                               ),
                                               Expanded(
@@ -352,6 +349,48 @@ class _Head extends StatelessWidget {
         color: Color(0xFF334155),
         fontWeight: FontWeight.w700,
       ),
+    );
+  }
+}
+
+class _ProgressCell extends StatelessWidget {
+  const _ProgressCell({required this.percent});
+
+  final int percent;
+
+  @override
+  Widget build(BuildContext context) {
+    final clampedPercent = percent.clamp(0, 100);
+    final progressValue = clampedPercent / 100;
+    final progressColor = clampedPercent >= 75
+        ? const Color(0xFF16A34A)
+        : clampedPercent >= 40
+            ? const Color(0xFF0B6BFF)
+            : const Color(0xFFF59E0B);
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '$clampedPercent%',
+          style: TextStyle(
+            color: progressColor,
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
+        ),
+        const SizedBox(height: 4),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: progressValue,
+            minHeight: 5,
+            backgroundColor: const Color(0xFFE2E8F0),
+            valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+          ),
+        ),
+      ],
     );
   }
 }

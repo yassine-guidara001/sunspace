@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter_getx_app/app/core/service/auth_service.dart';
+import 'package:flutter_getx_app/models/assignment_model.dart';
+import 'package:flutter_getx_app/services/assignments_api.dart';
 import 'package:flutter_getx_app/app/data/models/teacher_student_model.dart';
 import 'package:get/get.dart';
 import 'package:http/http.dart' as http;
@@ -10,9 +12,11 @@ class TeacherStudentsService {
   static const String _meEndpoint = '/users/me?populate=role';
 
   final AuthService _authService;
+  final AssignmentsApi _assignmentsApi;
 
   TeacherStudentsService({AuthService? authService})
-      : _authService = authService ?? Get.find<AuthService>();
+      : _authService = authService ?? Get.find<AuthService>(),
+        _assignmentsApi = AssignmentsApi(authService: authService);
 
   Future<List<TeacherStudentModel>> loadTeacherStudents() async {
     final instructorId = await _fetchInstructorId();
@@ -55,6 +59,8 @@ class TeacherStudentsService {
 
       final courseRel = _extractRelationMap(attrs['course']);
       final courseAttrs = _extractAttributes(courseRel);
+      final courseId =
+          _toInt(courseRel['id'] ?? courseAttrs['id'] ?? raw['courseId']);
       final courseName = _firstNonEmpty([
         courseAttrs['title'],
         courseAttrs['name'],
@@ -75,18 +81,105 @@ class TeacherStudentsService {
             raw['createdAt'],
       );
 
-      return TeacherStudentModel(
+      return _TeacherStudentRow(
         enrollmentId: enrollmentId,
         studentId: studentId,
         studentName: studentName,
         studentEmail: studentEmail,
         courseName: courseName,
+        courseId: courseId,
         progressPercent: progressPercent,
         enrolledAt: enrolledAt,
       );
     }).toList();
 
-    return rows;
+    final progressByEnrollment = await _buildProgressByCourseAndStudent(rows);
+
+    return rows
+        .map(
+          (row) => TeacherStudentModel(
+            enrollmentId: row.enrollmentId,
+            studentId: row.studentId,
+            studentName: row.studentName,
+            studentEmail: row.studentEmail,
+            courseName: row.courseName,
+            progressPercent: progressByEnrollment[
+                    _courseStudentKey(row.courseId, row.studentId)] ??
+                row.progressPercent,
+            enrolledAt: row.enrolledAt,
+          ),
+        )
+        .toList();
+  }
+
+  Future<Map<String, int>> _buildProgressByCourseAndStudent(
+    List<_TeacherStudentRow> rows,
+  ) async {
+    final rowsByCourse = <int, List<_TeacherStudentRow>>{};
+    for (final row in rows) {
+      if (row.courseId <= 0 || row.studentId <= 0) continue;
+      rowsByCourse.putIfAbsent(row.courseId, () => <_TeacherStudentRow>[]);
+      rowsByCourse[row.courseId]!.add(row);
+    }
+
+    if (rowsByCourse.isEmpty) {
+      return const <String, int>{};
+    }
+
+    final progress = <String, int>{};
+
+    for (final entry in rowsByCourse.entries) {
+      final courseId = entry.key;
+      final courseRows = entry.value;
+      final assignments = await _assignmentsApi.getAssignmentsForCourse(
+        courseId: courseId,
+      );
+
+      if (assignments.isEmpty) {
+        for (final row in courseRows) {
+          progress[_courseStudentKey(row.courseId, row.studentId)] = 0;
+        }
+        continue;
+      }
+
+      final submittedByStudent = <int, Set<int>>{};
+
+      for (final assignment in assignments) {
+        if (assignment.id <= 0) continue;
+
+        final submissions =
+            await _assignmentsApi.getSubmissionsForAssignmentWithStudents(
+          assignment.id,
+        );
+
+        final studentIdsForThisAssignment = <int>{};
+        for (final submission in submissions) {
+          final submissionMap = _asMap(submission);
+          final studentRel = _extractRelationMap(submissionMap['student']);
+          final studentAttrs = _extractAttributes(studentRel);
+          final studentId = _toInt(studentRel['id'] ?? studentAttrs['id']);
+          if (studentId > 0) {
+            studentIdsForThisAssignment.add(studentId);
+          }
+        }
+
+        for (final studentId in studentIdsForThisAssignment) {
+          submittedByStudent.putIfAbsent(studentId, () => <int>{});
+          submittedByStudent[studentId]!.add(assignment.id);
+        }
+      }
+
+      final totalAssignments = assignments.length;
+      for (final row in courseRows) {
+        final submittedCount = submittedByStudent[row.studentId]?.length ?? 0;
+        final percent = totalAssignments == 0
+            ? 0
+            : ((submittedCount / totalAssignments) * 100).round().clamp(0, 100);
+        progress[_courseStudentKey(row.courseId, row.studentId)] = percent;
+      }
+    }
+
+    return progress;
   }
 
   Future<int> _fetchInstructorId() async {
@@ -259,6 +352,10 @@ class TeacherStudentsService {
     return fallback;
   }
 
+  String _courseStudentKey(int courseId, int studentId) {
+    return '$courseId:$studentId';
+  }
+
   String _extractErrorMessage(http.Response response) {
     final decoded = _decodeJson(response.body);
     if (decoded is Map<String, dynamic>) {
@@ -271,4 +368,26 @@ class TeacherStudentsService {
     }
     return 'Erreur HTTP ${response.statusCode}';
   }
+}
+
+class _TeacherStudentRow {
+  const _TeacherStudentRow({
+    required this.enrollmentId,
+    required this.studentId,
+    required this.studentName,
+    required this.studentEmail,
+    required this.courseName,
+    required this.courseId,
+    required this.progressPercent,
+    required this.enrolledAt,
+  });
+
+  final String enrollmentId;
+  final int studentId;
+  final String studentName;
+  final String studentEmail;
+  final String courseName;
+  final int courseId;
+  final int progressPercent;
+  final DateTime? enrolledAt;
 }

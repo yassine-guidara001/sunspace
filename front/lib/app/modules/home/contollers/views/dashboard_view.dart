@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 
 import 'custom_sidebar.dart';
 import 'dashboard_topbar.dart';
+import 'widgets/sunspace_ai_fab.dart';
 
 class DashboardView extends GetView<HomeController> {
   const DashboardView({super.key});
@@ -62,6 +63,8 @@ class DashboardView extends GetView<HomeController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE8EDF4),
+      floatingActionButton: const SunspaceAiFab(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       body: Row(children: [
         const CustomSidebar(),
         Expanded(

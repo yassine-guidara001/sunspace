@@ -877,24 +877,31 @@ class _SubscriptionCheckoutDialogState
     extends State<_SubscriptionCheckoutDialog> {
   late final TextEditingController _cardNameController;
   late final TextEditingController _cardNumberController;
-  late final TextEditingController _expiryController;
+  late final TextEditingController _monthController;
+  late final TextEditingController _yearController;
   late final TextEditingController _cvcController;
+  late final TextEditingController _emailController;
+  bool _sendEmailReceipt = true;
 
   @override
   void initState() {
     super.initState();
     _cardNameController = TextEditingController();
     _cardNumberController = TextEditingController();
-    _expiryController = TextEditingController();
+    _monthController = TextEditingController();
+    _yearController = TextEditingController();
     _cvcController = TextEditingController();
+    _emailController = TextEditingController();
   }
 
   @override
   void dispose() {
     _cardNameController.dispose();
     _cardNumberController.dispose();
-    _expiryController.dispose();
+    _monthController.dispose();
+    _yearController.dispose();
     _cvcController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -926,153 +933,73 @@ class _SubscriptionCheckoutDialogState
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: double.infinity,
+                  Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFEFF5FF),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(18),
-                        topRight: Radius.circular(18),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                    child: Stack(
                       children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Confirmer l\'abonnement',
-                                style: TextStyle(
-                                  color: Color(0xFF111827),
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              RichText(
-                                text: TextSpan(
-                                  style: const TextStyle(
-                                    color: Color(0xFF64748B),
-                                    fontSize: 12,
-                                  ),
-                                  children: [
-                                    const TextSpan(text: 'Plan '),
-                                    TextSpan(
-                                      text: widget.planName,
-                                      style: TextStyle(
-                                        color: widget.accent,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    TextSpan(
-                                      text:
-                                          ' - ${widget.amount} DT /${widget.periodLabel}',
-                                      style: const TextStyle(
-                                        color: Color(0xFF111827),
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 6),
                         Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            InkWell(
-                              onTap: widget.onClose,
-                              borderRadius: BorderRadius.circular(999),
-                              child: const Padding(
-                                padding: EdgeInsets.all(2),
-                                child: Icon(Icons.close,
-                                    size: 16, color: Color(0xFF64748B)),
+                            _buildGatewayLogoHeader(),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Confirmer l\'abonnement',
+                              style: TextStyle(
+                                color: Color(0xFF111827),
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            Container(
-                              width: 30,
-                              height: 30,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEAF2FF),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: const Icon(
-                                Icons.shield_outlined,
-                                color: Color(0xFF60A5FA),
-                                size: 18,
+                            const SizedBox(height: 4),
+                            RichText(
+                              text: TextSpan(
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 13,
+                                ),
+                                children: [
+                                  const TextSpan(text: 'Plan '),
+                                  TextSpan(
+                                    text: widget.planName,
+                                    style: TextStyle(
+                                      color: widget.accent,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text:
+                                        ' - ${widget.amount} DT /${widget.periodLabel}',
+                                    style: const TextStyle(
+                                      color: Color(0xFF111827),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
+                        Positioned(
+                          right: -10,
+                          top: -10,
+                          child: IconButton(
+                            onPressed: widget.onClose,
+                            icon: const Icon(Icons.close, size: 18),
+                            color: const Color(0xFF6B7280),
+                            splashRadius: 18,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                        ),
                       ],
                     ),
                   ),
+                  const Divider(height: 0, color: Color(0xFFE5E7EB)),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
                     child: Column(
                       children: [
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 9),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 22,
-                                height: 22,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFEAF2FF),
-                                  borderRadius: BorderRadius.circular(7),
-                                ),
-                                child: Icon(widget.planIcon,
-                                    size: 14, color: widget.accent),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.planName,
-                                      style: const TextStyle(
-                                        color: Color(0xFF111827),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                    Text(
-                                      widget.billingLabel,
-                                      style: const TextStyle(
-                                        color: Color(0xFF9CA3AF),
-                                        fontSize: 10,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Text(
-                                '${widget.amount} DT',
-                                style: TextStyle(
-                                  color: widget.accent,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 30,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 6),
                         _checkoutField(
                           label: 'NOM SUR LA CARTE',
                           hint: 'Jean Dupont',
@@ -1095,19 +1022,25 @@ class _SubscriptionCheckoutDialogState
                           children: [
                             Expanded(
                               child: _checkoutField(
-                                label: 'EXPIRATION',
-                                hint: 'MM/AA',
-                                controller: _expiryController,
+                                label: 'MOIS',
+                                hint: 'Mois',
+                                controller: _monthController,
                                 keyboardType: TextInputType.number,
-                                inputFormatters: const [
-                                  _ExpiryDateInputFormatter(),
-                                ],
                               ),
                             ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: _checkoutField(
-                                label: 'CVC',
+                                label: 'ANNÉE',
+                                hint: 'Année',
+                                controller: _yearController,
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _checkoutField(
+                                label: 'CODE SÛRETÉ',
                                 hint: '...',
                                 controller: _cvcController,
                                 keyboardType: TextInputType.number,
@@ -1120,26 +1053,81 @@ class _SubscriptionCheckoutDialogState
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 8),
+                        InkWell(
+                          onTap: () => setState(
+                              () => _sendEmailReceipt = !_sendEmailReceipt),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: Checkbox(
+                                  value: _sendEmailReceipt,
+                                  onChanged: (value) => setState(
+                                      () => _sendEmailReceipt = value ?? false),
+                                  activeColor: const Color(0xFF0B5FB3),
+                                  checkColor: Colors.white,
+                                  materialTapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  side: const BorderSide(
+                                      color: Color(0xFF9CA3AF), width: 1),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Adresse e-mail',
+                                style: TextStyle(
+                                  color: Color(0xFF374151),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        _checkoutField(
+                          label: '',
+                          hint: '',
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          enabled: _sendEmailReceipt,
+                        ),
+                        const SizedBox(height: 8),
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 9),
+                              horizontal: 10, vertical: 8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF8FAFC),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE5E7EB)),
+                            color: const Color(0xFFFFFFFF),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFD1D5DB)),
                           ),
                           child: Row(
                             children: [
+                              const Icon(Icons.lock_outline,
+                                  size: 14, color: Color(0xFF9CA3AF)),
+                              const SizedBox(width: 6),
+                              const Expanded(
+                                child: Text(
+                                  'Paiement sécurisé',
+                                  style: TextStyle(
+                                    color: Color(0xFF9CA3AF),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
                               Container(
                                 width: 34,
                                 height: 16,
                                 decoration: BoxDecoration(
                                   color: Colors.white,
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(3),
                                   border: Border.all(
-                                      color: const Color(0xFFE5E7EB)),
+                                      color: const Color(0xFFD1D5DB),
+                                      width: 0.8),
                                 ),
                                 alignment: Alignment.center,
                                 child: const Text(
@@ -1151,7 +1139,7 @@ class _SubscriptionCheckoutDialogState
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               SizedBox(
                                 width: 22,
                                 height: 12,
@@ -1174,14 +1162,28 @@ class _SubscriptionCheckoutDialogState
                                   ],
                                 ),
                               ),
-                              const Spacer(),
-                              const Text(
-                                'SSL 256 BITS',
-                                style: TextStyle(
-                                  color: Color(0xFF9CA3AF),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 10,
-                                  letterSpacing: 1,
+                              Container(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 5),
+                                child: const Text(
+                                  'e-DINAR',
+                                  style: TextStyle(
+                                    color: Color(0xFF6B7280),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 9,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 5),
+                                child: const Text(
+                                  'C-Cash',
+                                  style: TextStyle(
+                                    color: Color(0xFF9CA3AF),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 9,
+                                  ),
                                 ),
                               ),
                             ],
@@ -1250,27 +1252,29 @@ class _SubscriptionCheckoutDialogState
     Widget? prefix,
     TextInputType keyboardType = TextInputType.text,
     bool obscureText = false,
+    bool enabled = true,
     List<TextInputFormatter>? inputFormatters,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF6B7280),
-            fontSize: 10,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1,
+        if (label.isNotEmpty)
+          Text(
+            label,
+            style: const TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.3,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
+        if (label.isNotEmpty) const SizedBox(height: 5),
         Container(
           height: 40,
           decoration: BoxDecoration(
-            color: const Color(0xFFFAFBFD),
-            borderRadius: BorderRadius.circular(9),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            color: enabled ? const Color(0xFFFFFFFF) : const Color(0xFFF3F4F6),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: const Color(0xFFD1D5DB)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 10),
           child: Row(
@@ -1282,6 +1286,7 @@ class _SubscriptionCheckoutDialogState
               Expanded(
                 child: TextField(
                   controller: controller,
+                  enabled: enabled,
                   keyboardType: keyboardType,
                   obscureText: obscureText,
                   obscuringCharacter: '.',
@@ -1290,7 +1295,7 @@ class _SubscriptionCheckoutDialogState
                     hintText: hint,
                     hintStyle: const TextStyle(
                       color: Color(0xFF9CA3AF),
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                     border: InputBorder.none,
@@ -1298,13 +1303,57 @@ class _SubscriptionCheckoutDialogState
                   ),
                   style: const TextStyle(
                     color: Color(0xFF374151),
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGatewayLogoHeader() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF97316), Color(0xFFDC2626), Color(0xFF2563EB)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: const Icon(Icons.credit_card, color: Colors.white, size: 16),
+        ),
+        const SizedBox(width: 8),
+        const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'ClicToPay.com.tn',
+              style: TextStyle(
+                color: Color(0xFF0B4FA2),
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.2,
+              ),
+            ),
+            Text(
+              'by Monétique Tunisie',
+              style: TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ],
     );

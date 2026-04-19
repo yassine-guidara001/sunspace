@@ -66,8 +66,8 @@ class _InteractiveFloorPlanState extends State<InteractiveFloorPlan> {
     // ── Tooltip ───────────────────────────────────────────────────────────
     _tooltip = html.DivElement()
       ..style.position = 'fixed'
-      ..style.background = '#1E293B'
-      ..style.color = 'white'
+      ..style.background = '#FFFFFF'
+      ..style.color = '#0F172A'
       ..style.padding = '12px 16px'
       ..style.borderRadius = '8px'
       ..style.fontSize = '13px'
@@ -77,8 +77,8 @@ class _InteractiveFloorPlanState extends State<InteractiveFloorPlan> {
       ..style.display = 'none'
       ..style.whiteSpace = 'normal'
       ..style.zIndex = '9999'
-      ..style.boxShadow = '0 4px 12px rgba(0,0,0,0.25)'
-      ..style.border = '1px solid rgba(255,255,255,0.1)'
+      ..style.boxShadow = '0 8px 24px rgba(15,23,42,0.14)'
+      ..style.border = '1px solid #E2E8F0'
       ..style.maxWidth = '320px';
     html.document.body!.append(_tooltip!);
 
@@ -116,7 +116,7 @@ class _InteractiveFloorPlanState extends State<InteractiveFloorPlan> {
 
         if (space != null) {
           tooltipHtml += '''
-            <div style="font-size:12px;color:rgba(255,255,255,0.8);line-height:1.4">
+            <div style="font-size:12px;color:rgba(15,23,42,0.78);line-height:1.4">
           ''';
 
           tooltipHtml +=

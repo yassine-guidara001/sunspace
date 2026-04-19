@@ -1,6 +1,8 @@
 import 'package:flutter_getx_app/app/data/models/course_model.dart';
 import 'package:flutter_getx_app/app/data/services/courses_api.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/home_controller.dart';
+import 'package:flutter_getx_app/models/assignment_model.dart';
+import 'package:flutter_getx_app/services/assignments_api.dart';
 import 'package:get/get.dart';
 
 class CourseController extends GetxController {
@@ -8,9 +10,11 @@ class CourseController extends GetxController {
   static const int _studentCatalogMenuIndex = 15;
 
   final CoursesApi _api = CoursesApi();
+  final AssignmentsApi _assignmentsApi = AssignmentsApi();
 
   final RxList<Course> courses = <Course>[].obs;
   final RxList<Course> studentMyCourses = <Course>[].obs;
+  final RxMap<String, int> studentProgressByCourseKey = <String, int>{}.obs;
   final RxBool isLoading = false.obs;
   final RxBool isProcessingEnrollment = false.obs;
   final RxString searchQuery = ''.obs;
@@ -71,6 +75,7 @@ class CourseController extends GetxController {
     try {
       final result = await _api.getStudentMyCourses();
       studentMyCourses.assignAll(result);
+      await _refreshStudentProgressByAssignments();
     } catch (e) {
       if (!silent) {
         _handleError('Chargement mes cours', e);
@@ -80,6 +85,79 @@ class CourseController extends GetxController {
         isLoading.value = false;
       }
     }
+  }
+
+  int studentCourseProgressPercent(Course course) {
+    return studentProgressByCourseKey[_courseKey(course)] ?? 0;
+  }
+
+  Future<void> _refreshStudentProgressByAssignments() async {
+    if (studentMyCourses.isEmpty) {
+      studentProgressByCourseKey.clear();
+      return;
+    }
+
+    try {
+      final assignments =
+          await _assignmentsApi.getAssignments(onlyInstructor: false);
+      final assignmentIds = assignments
+          .where((assignment) => assignment.id > 0)
+          .map((assignment) => assignment.id)
+          .toSet();
+
+      final submissionsByAssignment = assignmentIds.isEmpty
+          ? const <int, List<Map<String, dynamic>>>{}
+          : await _assignmentsApi.getStudentSubmissionsByAssignment(
+              assignmentIds: assignmentIds,
+            );
+
+      final progressMap = <String, int>{};
+
+      for (final course in studentMyCourses) {
+        final courseAssignments = assignments.where((assignment) {
+          if (course.id > 0 && assignment.courseId == course.id) {
+            return true;
+          }
+
+          final courseDoc = course.documentId.trim();
+          final assignmentDoc = (assignment.courseDocumentId ?? '').trim();
+          return courseDoc.isNotEmpty &&
+              assignmentDoc.isNotEmpty &&
+              assignmentDoc == courseDoc;
+        }).toList();
+
+        if (courseAssignments.isEmpty) {
+          progressMap[_courseKey(course)] = 0;
+          continue;
+        }
+
+        final submittedCount = courseAssignments.where((assignment) {
+          final submissions = submissionsByAssignment[assignment.id] ??
+              const <Map<String, dynamic>>[];
+          return submissions.isNotEmpty;
+        }).length;
+
+        final percentNum = ((submittedCount / courseAssignments.length) * 100)
+            .round()
+            .clamp(0, 100);
+        progressMap[_courseKey(course)] = percentNum.toInt();
+      }
+
+      studentProgressByCourseKey.assignAll(progressMap);
+    } catch (_) {
+      final fallback = <String, int>{};
+      for (final course in studentMyCourses) {
+        fallback[_courseKey(course)] = 0;
+      }
+      studentProgressByCourseKey.assignAll(fallback);
+    }
+  }
+
+  String _courseKey(Course course) {
+    if (course.id > 0) return 'id:${course.id}';
+    final doc = course.documentId.trim();
+    if (doc.isNotEmpty) return 'doc:$doc';
+    return 'title:${course.title.trim().toLowerCase()}';
   }
 
   Future<bool> enrollInCourseWithPayment(Course course) async {

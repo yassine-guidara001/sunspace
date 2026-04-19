@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_getx_app/app/data/services/assistant_chat_service.dart';
 import 'package:flutter_getx_app/app/core/service/storage_service.dart';
 import 'package:flutter_getx_app/app/data/services/communication_api.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/home_controller.dart';
@@ -23,6 +24,7 @@ class _CommunicationViewState extends State<CommunicationView>
   final HomeController _homeController = Get.find<HomeController>();
   final StorageService _storageService = Get.find<StorageService>();
   final CommunicationApi _api = CommunicationApi();
+  late final AssistantChatService _assistantChatService;
 
   late final TabController _tabController;
 
@@ -51,6 +53,8 @@ class _CommunicationViewState extends State<CommunicationView>
   bool _isReplying = false;
   bool _isSearchingSimilar = false;
   bool _isImprovingDraft = false;
+  bool _isCleaningOldMessages = false;
+  bool _isCleaningForumThreads = false;
   bool _isUpdatingStatus = false;
   int? _validatingReplyId;
   String? _reactingKey;
@@ -113,9 +117,35 @@ class _CommunicationViewState extends State<CommunicationView>
     return 'Utilisateur';
   }
 
+  AssistantProfile _assistantProfileFromCurrentUserRole() {
+    final role = _resolveRole();
+    if (role.contains('admin') || role.contains('administrateur')) {
+      return AssistantProfile.admin;
+    }
+    if (role.contains('enseignant') ||
+        role.contains('teacher') ||
+        role.contains('formateur')) {
+      return AssistantProfile.enseignant;
+    }
+    if (role.contains('professionnel') || role.contains('professional')) {
+      return AssistantProfile.professionnel;
+    }
+    if (role.contains('etudiant') ||
+        role.contains('student') ||
+        role.contains('apprenant')) {
+      return AssistantProfile.etudiant;
+    }
+
+    // Fallback pour éviter de bloquer l'utilisateur si le rôle est ambigu.
+    return AssistantProfile.etudiant;
+  }
+
   @override
   void initState() {
     super.initState();
+    _assistantChatService = AssistantChatService(
+      apiClient: CommunicationApiAssistantClient(_api),
+    );
     _tabController = TabController(length: 2, vsync: this);
     _recipientGroup = _isTeacher ? 'Étudiant' : 'Enseignant';
 
@@ -360,6 +390,754 @@ class _CommunicationViewState extends State<CommunicationView>
     );
   }
 
+  List<String> _asStringList(dynamic value) {
+    if (value is! List) return const <String>[];
+    return value
+        .map((item) => item.toString().trim())
+        .where((item) => item.isNotEmpty)
+        .toList();
+  }
+
+  List<String> _removeProfileOptions(List<String> options) {
+    final blocked = <String>{
+      'etudiant',
+      'étudiant',
+      'enseignant',
+      'enseignant / formateur',
+      'formateur',
+      'professionnel',
+    };
+
+    return options
+        .where((item) => !blocked.contains(item.trim().toLowerCase()))
+        .toList();
+  }
+
+  List<Map<String, dynamic>> _extractSpaceChoices(dynamic value) {
+    final choices = <Map<String, dynamic>>[];
+
+    if (value is Map && value['spaces'] is List) {
+      for (final item in value['spaces'] as List) {
+        if (item is Map) {
+          choices.add(Map<String, dynamic>.from(item));
+        }
+      }
+    }
+
+    if (choices.isNotEmpty) return choices;
+
+    if (value is Map && value['spacesByDate'] is List) {
+      for (final group in value['spacesByDate'] as List) {
+        if (group is! Map) continue;
+        final date = group['date']?.toString().trim();
+        final spaces = group['spaces'];
+        if (spaces is! List) continue;
+        for (final item in spaces) {
+          if (item is! Map) continue;
+          final space = Map<String, dynamic>.from(item);
+          if ((space['date']?.toString().trim() ?? '').isEmpty &&
+              (date ?? '').isNotEmpty) {
+            space['date'] = date;
+          }
+          choices.add(space);
+        }
+      }
+    }
+
+    return choices;
+  }
+
+  String _spaceSelectionToken(Map<String, dynamic> space) {
+    final id = space['id']?.toString().trim() ?? '';
+    final date = space['date']?.toString().trim() ?? '';
+    return '__SPACE_SELECT__|$id|$date';
+  }
+
+  String _spaceChipLabel(Map<String, dynamic> space) {
+    final name = space['name']?.toString().trim() ?? 'Espace';
+    final capacity = space['capacity']?.toString().trim() ?? '';
+    final date = space['date']?.toString().trim() ?? '';
+    final parts = <String>[name];
+    if (capacity.isNotEmpty) parts.add('$capacity pers.');
+    if (date.isNotEmpty) parts.add(date);
+    return parts.join(' • ');
+  }
+
+  Map<AssistantProfile, Map<String, dynamic>> _questionsByRole() {
+    return {
+      AssistantProfile.etudiant: {
+        'icon': Icons.school_outlined,
+        'color': const Color(0xFF0EA5E9),
+        'title': 'Espace Étudiant',
+        'subtitle': 'Parcours, devoirs et réservations',
+        'welcome':
+            'Bienvenue étudiant! Je peux vous aider à planifier vos réservations, suivre vos cours publiés et repérer les devoirs actifs. Que souhaitez-vous faire en priorité?',
+        'questions': const <String>[
+          'Voir les espaces disponibles aujourd hui',
+          'Réserver une salle d étude',
+          'Donner les cours publiés',
+          'Donner les sessions publiées par les enseignants',
+          'Donner les devoirs publiés',
+          'Donner les sessions de formation en ligne disponibles',
+          'Consulter le catalogue de formations',
+        ],
+      },
+      AssistantProfile.enseignant: {
+        'icon': Icons.person_outline,
+        'color': const Color(0xFF7C3AED),
+        'title': 'Espace Enseignant',
+        'subtitle': 'Pilotage de vos cours, devoirs et inscriptions',
+        'welcome':
+            'Bienvenue enseignant! Je peux vous aider a suivre vos cours, vos devoirs et la dynamique de vos classes. Que souhaitez-vous analyser en priorite?',
+        'questions': const <String>[
+          'Quelle est la liste des etudiants inscrits a nos cours ?',
+          'Y a-t-il des etudiants qui ont soumis des devoirs ?',
+          'Planifier une session de formation',
+          'Voir les espaces disponibles',
+          'Donner les cours publies',
+          'Consulter les inscriptions',
+        ],
+      },
+      AssistantProfile.professionnel: {
+        'icon': Icons.business_center_outlined,
+        'color': const Color(0xFFF59E0B),
+        'title': 'Espace Professionnel',
+        'subtitle': 'Gestion de vos événements et réunions',
+        'welcome':
+            'Bienvenue professionnel! Je suis ici pour vous aider à réserver des espaces, planifier vos événements et gérer vos disponibilités. Comment puis-je vous aider?',
+        'questions': const <String>[
+          'Voir les espaces disponibles',
+          'Réserver une salle équipée',
+          'Planifier une session de formation',
+          'Contacter l équipe support',
+          'Voir mes réservations',
+          'Demander un équipement spécial',
+        ],
+      },
+      AssistantProfile.admin: {
+        'icon': Icons.admin_panel_settings_outlined,
+        'color': const Color(0xFF0F766E),
+        'title': 'Espace Admin',
+        'subtitle': 'Supervision des reservations et operations',
+        'welcome':
+            'Bienvenue administrateur! Je vous accompagne pour suivre l activite du jour, prioriser les demandes et piloter les actions critiques.',
+        'questions': const <String>[
+          'Quelles sont les nouvelles reservations pour aujourd hui ?',
+          'Donner la liste des reservations en attente',
+          'Quelle est la liste des etudiants inscrits a nos cours ?',
+          'Y a-t-il des etudiants qui ont soumis des devoirs ?',
+          'Voir les espaces disponibles',
+          'Planifier une session de formation',
+          'Consulter les inscriptions',
+          'Donner les sessions de formation en ligne disponibles',
+        ],
+      },
+    };
+  }
+
+  List<String> _starterPromptsForProfile(AssistantProfile profile) {
+    return (_questionsByRole()[profile]?['questions'] as List<String>?) ??
+        const <String>[];
+  }
+
+  String _welcomeMessageForProfile(AssistantProfile profile) {
+    return (_questionsByRole()[profile]?['welcome'] as String?) ??
+        'Bonjour! Comment puis-je vous aider?';
+  }
+
+  Future<void> _openAssistantBottomSheet() async {
+    final inputCtrl = TextEditingController();
+    final messages = <AssistantMessage>[];
+    final quickOptions = <String>[];
+    List<Map<String, dynamic>> spaceChoices = <Map<String, dynamic>>[];
+    Map<String, dynamic> session = <String, dynamic>{};
+    AssistantProfile? activeProfile = _assistantProfileFromCurrentUserRole();
+    bool isLoading = false;
+    bool isStreaming = false;
+    bool initialized = false;
+    String? inlineError;
+    String? lastFailedUserMessage;
+
+    AssistantProfile? detectProfileFromText(String raw) {
+      final text = raw.trim().toLowerCase();
+      if (text.isEmpty) return null;
+      if (text.contains('etudiant') || text.contains('étudiant')) {
+        return AssistantProfile.etudiant;
+      }
+      if (text.contains('enseignant') || text.contains('formateur')) {
+        return AssistantProfile.enseignant;
+      }
+      if (text.contains('professionnel')) {
+        return AssistantProfile.professionnel;
+      }
+      if (text.contains('admin') || text.contains('administrateur')) {
+        return AssistantProfile.admin;
+      }
+      return null;
+    }
+
+    Future<void> initializeAssistant(StateSetter setModalState) async {
+      // Afficher immédiatement la salutation personnalisée au rôle de l'utilisateur
+      setModalState(() {
+        isLoading = false;
+        inlineError = null;
+        messages.clear();
+        activeProfile = _assistantProfileFromCurrentUserRole();
+        quickOptions
+          ..clear()
+          ..addAll(_starterPromptsForProfile(activeProfile!));
+        // Ajouter le message de bienvenue du rôle
+        messages.add(
+          AssistantMessage(
+            role: AssistantMessageRole.assistant,
+            text: _welcomeMessageForProfile(activeProfile!),
+          ),
+        );
+      });
+    }
+
+    Future<void> sendMessage(
+      StateSetter setModalState,
+      String text, {
+      bool appendUserMessage = true,
+    }) async {
+      final trimmed = text.trim();
+      if (trimmed.isEmpty || isLoading) return;
+
+      final requestedProfile = detectProfileFromText(trimmed);
+      if (requestedProfile != null) {
+        activeProfile = requestedProfile;
+      }
+
+      activeProfile ??= _assistantProfileFromCurrentUserRole();
+
+      final historyBeforeRequest = List<AssistantMessage>.from(messages);
+      var streamMessageIndex = -1;
+
+      setModalState(() {
+        if (appendUserMessage) {
+          messages.add(
+            AssistantMessage(
+              role: AssistantMessageRole.user,
+              text: trimmed,
+            ),
+          );
+          inputCtrl.clear();
+        }
+        messages.add(
+          const AssistantMessage(
+            role: AssistantMessageRole.assistant,
+            text: '',
+          ),
+        );
+        streamMessageIndex = messages.length - 1;
+        quickOptions.clear();
+        isLoading = true;
+        isStreaming = true;
+        inlineError = null;
+        lastFailedUserMessage = null;
+      });
+
+      try {
+        final result = await _assistantChatService.sendMessage(
+          history: historyBeforeRequest,
+          userMessage: trimmed,
+          profile: activeProfile!,
+          session: session,
+          onStreamChunk: (partial) {
+            if (!mounted || streamMessageIndex < 0) return;
+            setModalState(() {
+              messages[streamMessageIndex] = AssistantMessage(
+                role: AssistantMessageRole.assistant,
+                text: partial,
+              );
+            });
+          },
+        );
+
+        setModalState(() {
+          session = result.session;
+          activeProfile = _assistantChatService.profileFromSession(session) ??
+              _assistantProfileFromCurrentUserRole();
+          spaceChoices = _extractSpaceChoices(result.contextData);
+          quickOptions
+            ..clear()
+            ..addAll(_removeProfileOptions(result.options));
+          if (result.answer.isEmpty && streamMessageIndex >= 0) {
+            messages.removeAt(streamMessageIndex);
+          }
+          isLoading = false;
+          isStreaming = false;
+        });
+      } catch (e) {
+        setModalState(() {
+          if (streamMessageIndex >= 0 && streamMessageIndex < messages.length) {
+            messages.removeAt(streamMessageIndex);
+          }
+          isLoading = false;
+          isStreaming = false;
+          inlineError =
+              'Connexion impossible à l\'assistant. Vérifiez le réseau puis réessayez.';
+          lastFailedUserMessage = trimmed;
+        });
+      }
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (modalContext) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            if (!initialized) {
+              initialized = true;
+              unawaited(initializeAssistant(setModalState));
+            }
+
+            return SafeArea(
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.8,
+                margin: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: _border),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x1F000000),
+                      blurRadius: 18,
+                      offset: Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF0F766E),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.auto_awesome,
+                              color: Colors.white, size: 18),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Assistant SunSpace',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Copilote d actions • ${AssistantChatService.profileLabel(activeProfile!)}',
+                                style: const TextStyle(
+                                  color: Color(0xFF64748B),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: isLoading
+                              ? null
+                              : () => initializeAssistant(setModalState),
+                          icon: const Icon(Icons.restart_alt_rounded, size: 16),
+                          label: const Text('Réinitialiser'),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(Icons.close),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (inlineError != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF2F2),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFFCA5A5)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.wifi_off_rounded,
+                                color: Color(0xFFB91C1C), size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                inlineError!,
+                                style: const TextStyle(
+                                  color: Color(0xFF991B1B),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed:
+                                  isLoading || lastFailedUserMessage == null
+                                      ? null
+                                      : () => sendMessage(
+                                            setModalState,
+                                            lastFailedUserMessage!,
+                                            appendUserMessage: false,
+                                          ),
+                              child: const Text('Réessayer'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 32,
+                                height: 32,
+                                decoration: BoxDecoration(
+                                  color: (_questionsByRole()[activeProfile]
+                                              ?['color'] as Color? ??
+                                          const Color(0xFF0EA5E9))
+                                      .withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  _questionsByRole()[activeProfile]?['icon']
+                                          as IconData? ??
+                                      Icons.help_outline,
+                                  color: _questionsByRole()[activeProfile]
+                                          ?['color'] as Color? ??
+                                      const Color(0xFF0EA5E9),
+                                  size: 16,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _questionsByRole()[activeProfile]
+                                              ?['title'] as String? ??
+                                          'Actions',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                    Text(
+                                      _questionsByRole()[activeProfile]
+                                              ?['subtitle'] as String? ??
+                                          '',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        color: Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: _starterPromptsForProfile(activeProfile!)
+                                .map(
+                                  (prompt) => ActionChip(
+                                    label: Text(
+                                      prompt,
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    backgroundColor:
+                                        (_questionsByRole()[activeProfile]
+                                                    ?['color'] as Color? ??
+                                                const Color(0xFF0EA5E9))
+                                            .withValues(alpha: 0.08),
+                                    labelStyle: TextStyle(
+                                      color: _questionsByRole()[activeProfile]
+                                              ?['color'] as Color? ??
+                                          const Color(0xFF0EA5E9),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    side: BorderSide(
+                                      color: (_questionsByRole()[activeProfile]
+                                                  ?['color'] as Color? ??
+                                              const Color(0xFF0EA5E9))
+                                          .withValues(alpha: 0.3),
+                                    ),
+                                    onPressed: isLoading
+                                        ? null
+                                        : () =>
+                                            sendMessage(setModalState, prompt),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: _border),
+                        ),
+                        child: messages.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Initialisation de l\'assistant...',
+                                  style: TextStyle(color: Color(0xFF64748B)),
+                                ),
+                              )
+                            : ListView.separated(
+                                itemCount:
+                                    messages.length + (isStreaming ? 1 : 0),
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 8),
+                                itemBuilder: (_, index) {
+                                  if (isStreaming && index == messages.length) {
+                                    return Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(10),
+                                          border: Border.all(color: _border),
+                                        ),
+                                        child: const Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            SizedBox(
+                                              width: 12,
+                                              height: 12,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2),
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              'Assistant écrit...',
+                                              style: TextStyle(
+                                                color: Color(0xFF64748B),
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    );
+                                  }
+
+                                  final item = messages[index];
+                                  final isUser =
+                                      item.role == AssistantMessageRole.user;
+                                  return Align(
+                                    alignment: isUser
+                                        ? Alignment.centerRight
+                                        : Alignment.centerLeft,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: isUser
+                                            ? const Color(0xFFEAF2FF)
+                                            : Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: _border),
+                                      ),
+                                      child: Text(
+                                        item.text,
+                                        style: const TextStyle(height: 1.35),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ),
+                    if (spaceChoices.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: spaceChoices
+                            .take(8)
+                            .map(
+                              (space) => ActionChip(
+                                label: Text(_spaceChipLabel(space)),
+                                onPressed: isLoading
+                                    ? null
+                                    : () => sendMessage(
+                                          setModalState,
+                                          _spaceSelectionToken(space),
+                                        ),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ],
+                    if (quickOptions.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: (_questionsByRole()[activeProfile]?['color']
+                                      as Color? ??
+                                  const Color(0xFF0EA5E9))
+                              .withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: (_questionsByRole()[activeProfile]?['color']
+                                        as Color? ??
+                                    const Color(0xFF0EA5E9))
+                                .withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: quickOptions
+                              .map(
+                                (option) => ActionChip(
+                                  label: Text(
+                                    option,
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                  backgroundColor:
+                                      (_questionsByRole()[activeProfile]
+                                                  ?['color'] as Color? ??
+                                              const Color(0xFF0EA5E9))
+                                          .withValues(alpha: 0.1),
+                                  labelStyle: TextStyle(
+                                    color: _questionsByRole()[activeProfile]
+                                            ?['color'] as Color? ??
+                                        const Color(0xFF0EA5E9),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  side: BorderSide.none,
+                                  onPressed: isLoading
+                                      ? null
+                                      : () =>
+                                          sendMessage(setModalState, option),
+                                ),
+                              )
+                              .toList(),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    FocusTraversalGroup(
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Semantics(
+                              label: 'Champ de saisie du message assistant',
+                              textField: true,
+                              child: TextField(
+                                controller: inputCtrl,
+                                autofocus: true,
+                                textInputAction: TextInputAction.send,
+                                decoration:
+                                    _inputDecoration('Posez votre question...'),
+                                onSubmitted: (value) =>
+                                    sendMessage(setModalState, value),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          SizedBox(
+                            height: 42,
+                            child: ElevatedButton.icon(
+                              onPressed: isLoading
+                                  ? null
+                                  : () => sendMessage(
+                                        setModalState,
+                                        inputCtrl.text.trim(),
+                                      ),
+                              icon: isLoading
+                                  ? const SizedBox(
+                                      width: 14,
+                                      height: 14,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.send_rounded, size: 16),
+                              label: const Text('Envoyer'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0F766E),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    inputCtrl.dispose();
+  }
+
+  Widget _buildAssistantFab() {
+    return FloatingActionButton(
+      onPressed: _openAssistantBottomSheet,
+      backgroundColor: const Color(0xFF0F766E),
+      foregroundColor: Colors.white,
+      elevation: 6,
+      shape: const CircleBorder(),
+      tooltip: 'Assistant IA SunSpace',
+      child: const Icon(Icons.auto_awesome),
+    );
+  }
+
   Future<void> _sendPrivateMessage() async {
     final recipient = _selectedRecipient;
     final subject = _messageSubjectCtrl.text.trim();
@@ -397,6 +1175,115 @@ class _CommunicationViewState extends State<CommunicationView>
     } finally {
       if (mounted) {
         setState(() => _isSendingMessage = false);
+      }
+    }
+  }
+
+  Future<void> _cleanupOldMessages() async {
+    final targetRecipient = _selectedRecipientId;
+    final recipientLabel = _filteredRecipients
+        .firstWhereOrNull((item) => item['id'] == targetRecipient)?['username']
+        ?.toString();
+
+    final scopeText = targetRecipient == null
+        ? 'de votre messagerie'
+        : 'de la conversation avec ${recipientLabel ?? 'ce destinataire'}';
+
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Nettoyer la conversation'),
+            content: Text(
+              'Supprimer tous les messages $scopeText ? Cette action est définitive.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC2626),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Supprimer'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isCleaningOldMessages = true);
+    try {
+      final result = await _api.deleteMessages(
+        recipientId: targetRecipient,
+      );
+      final deleted = _toInt(result['deleted']) ?? 0;
+
+      await _loadAll();
+      _showSuccess(
+        'Nettoyage terminé',
+        deleted == 0
+            ? 'Aucun message à supprimer.'
+            : '$deleted message(s) supprimé(s).',
+      );
+    } catch (e) {
+      _showError('Erreur', _friendlyError(e));
+    } finally {
+      if (mounted) {
+        setState(() => _isCleaningOldMessages = false);
+      }
+    }
+  }
+
+  Future<void> _cleanupOldForumThreads() async {
+    final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Nettoyer le forum'),
+            content: const Text(
+              'Supprimer les discussions du forum ? Cette action est définitive.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Annuler'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFDC2626),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Supprimer'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!confirmed || !mounted) return;
+
+    setState(() => _isCleaningForumThreads = true);
+    try {
+      final result = await _api.deleteForumThreads();
+      final deleted = _toInt(result['deleted']) ?? 0;
+      await _loadAll();
+
+      _showSuccess(
+        'Forum nettoyé',
+        deleted == 0
+            ? 'Aucune discussion à supprimer.'
+            : '$deleted discussion(s) supprimée(s).',
+      );
+    } catch (e) {
+      _showError('Erreur', _friendlyError(e));
+    } finally {
+      if (mounted) {
+        setState(() => _isCleaningForumThreads = false);
       }
     }
   }
@@ -1167,21 +2054,43 @@ class _CommunicationViewState extends State<CommunicationView>
           const SizedBox(height: 10),
           Align(
             alignment: Alignment.centerLeft,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: _border),
-              ),
-              child: Text(
-                '${conversationMessages.length} message(s)',
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: Color(0xFF475569),
-                  fontWeight: FontWeight.w600,
+            child: Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: _border),
+                  ),
+                  child: Text(
+                    '${conversationMessages.length} message(s)',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF475569),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
+                const Spacer(),
+                OutlinedButton.icon(
+                  onPressed:
+                      _isCleaningOldMessages ? null : _cleanupOldMessages,
+                  icon: _isCleaningOldMessages
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.delete_sweep_outlined, size: 16),
+                  label: const Text('Nettoyer'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF334155),
+                    side: const BorderSide(color: _border),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1566,6 +2475,45 @@ class _CommunicationViewState extends State<CommunicationView>
             'Discussions récentes',
             'Vue thread style conversation: statut, réponses, validation et réactions.',
             Icons.forum_outlined,
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: _border),
+                ),
+                child: Text(
+                  '${_threads.length} discussion(s)',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF475569),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              OutlinedButton.icon(
+                onPressed:
+                    _isCleaningForumThreads ? null : _cleanupOldForumThreads,
+                icon: _isCleaningForumThreads
+                    ? const SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_sweep_outlined, size: 16),
+                label: const Text('Nettoyer forum'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF334155),
+                  side: const BorderSide(color: _border),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Expanded(

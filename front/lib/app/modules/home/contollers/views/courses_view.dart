@@ -247,6 +247,9 @@ class CoursesView extends GetView<CourseController> {
   }
 
   Widget _buildStudentMyCourseCard(Course course) {
+    final progressPercent = controller.studentCourseProgressPercent(course);
+    final progressValue = (progressPercent / 100).clamp(0.0, 1.0);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
       decoration: BoxDecoration(
@@ -303,9 +306,9 @@ class CoursesView extends GetView<CourseController> {
             ],
           ),
           const SizedBox(height: 24),
-          const Row(
+          Row(
             children: [
-              Text(
+              const Text(
                 'Progression',
                 style: TextStyle(
                   color: Color(0xFF111827),
@@ -313,10 +316,10 @@ class CoursesView extends GetView<CourseController> {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              Spacer(),
+              const Spacer(),
               Text(
-                '0%',
-                style: TextStyle(
+                '$progressPercent%',
+                style: const TextStyle(
                   color: Color(0xFF111827),
                   fontSize: 10,
                   fontWeight: FontWeight.w800,
@@ -335,12 +338,14 @@ class CoursesView extends GetView<CourseController> {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              Container(
-                height: 4,
-                width: 0,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2563EB),
-                  borderRadius: BorderRadius.circular(2),
+              FractionallySizedBox(
+                widthFactor: progressValue,
+                child: Container(
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2563EB),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
             ],
@@ -603,329 +608,106 @@ class CoursesView extends GetView<CourseController> {
   void _showEnrollmentPaymentDialog(BuildContext context, Course course) {
     final cardholderController = TextEditingController();
     final cardNumberController = TextEditingController();
+    final yearController = TextEditingController();
     final expiryController = TextEditingController();
     final cvcController = TextEditingController();
+    final emailController = TextEditingController();
+    var sendEmailReceipt = true;
 
-    final amountLabel =
-        course.price <= 0 ? 'Gratuit' : '${course.price.toStringAsFixed(0)} DT';
-    final payButtonLabel =
-        course.price <= 0 ? 'Payer Gratuit' : 'Payer $amountLabel';
+    final amountLabel = '${course.price.toStringAsFixed(3)} TND';
 
     showDialog<void>(
       context: context,
       barrierDismissible: true,
       builder: (dialogContext) {
-        return Dialog(
-          insetPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-          child: SizedBox(
-            width: 440,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Stack(
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.fromLTRB(22, 22, 22, 16),
-                      decoration: const BoxDecoration(
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              backgroundColor: const Color(0xFFF3F4F6),
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(4)),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 390),
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 14, 14, 18),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+                      decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.only(
-                          topLeft: Radius.circular(22),
-                          topRight: Radius.circular(22),
-                        ),
+                        borderRadius: BorderRadius.circular(2),
                       ),
-                      child: Row(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'PAIEMENT SÉCURISÉ',
-                                  style: TextStyle(
-                                    color: Color(0xFF111827),
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.1,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const SizedBox(height: 5),
-                                RichText(
-                                  text: TextSpan(
-                                    style: const TextStyle(
-                                      color: Color(0xFF6B7280),
-                                      fontWeight: FontWeight.w500,
-                                      fontSize: 12,
-                                    ),
-                                    children: [
-                                      const TextSpan(
-                                        text: 'Inscription à la formation : ',
-                                      ),
-                                      TextSpan(
-                                        text: course.title,
-                                        style: const TextStyle(
-                                          color: Color(0xFF2563EB),
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
+                          _buildGatewayLogoHeader(),
+                          const SizedBox(height: 12),
+                          const Text(
+                            'Paiement sécurisé',
+                            style: TextStyle(
+                              color: Color(0xFF111827),
+                              fontSize: 24,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.2,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          const Icon(
-                            Icons.verified_user_outlined,
-                            color: Color(0xFF60A5FA),
-                            size: 28,
-                          ),
-                          const SizedBox(width: 14),
-                        ],
-                      ),
-                    ),
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: IconButton(
-                        onPressed: () => Navigator.of(dialogContext).pop(),
-                        icon: const Icon(Icons.close, size: 16),
-                        color: const Color(0xFF6B7280),
-                        splashRadius: 15,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                    ),
-                  ],
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 0, 22, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              constraints: const BoxConstraints(minHeight: 66),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 11),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF8FAFC),
-                                borderRadius: BorderRadius.circular(12),
-                                border:
-                                    Border.all(color: const Color(0xFFE5E7EB)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'MONTANT À RÉGLER',
-                                    style: TextStyle(
-                                      color: Color(0xFF6B7280),
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 10,
-                                      letterSpacing: 0.4,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    amountLabel,
-                                    style: const TextStyle(
-                                      color: Color(0xFF2563EB),
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 22,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Inscription à la formation : ${course.title}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF374151),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Container(
-                              constraints: const BoxConstraints(minHeight: 66),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFFFFF),
-                                borderRadius: BorderRadius.circular(12),
-                                border:
-                                    Border.all(color: const Color(0xFF3B82F6)),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 28,
-                                    height: 28,
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF2563EB),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(
-                                      Icons.credit_card,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Expanded(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Carte Bancaire',
-                                          style: TextStyle(
-                                            color: Color(0xFF111827),
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 12,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        Text(
-                                          'VISA, MASTERCARD',
-                                          style: TextStyle(
-                                            color: Color(0xFF6B7280),
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 9,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Container(
-                                    width: 14,
-                                    height: 14,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                          color: const Color(0xFF2563EB),
-                                          width: 2),
-                                    ),
-                                    child: Center(
-                                      child: Container(
-                                        width: 6,
-                                        height: 6,
-                                        decoration: const BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: Color(0xFF2563EB),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          const SizedBox(height: 14),
+                          TextField(
+                            controller: cardNumberController,
+                            autofillHints: const <String>[],
+                            enableSuggestions: false,
+                            autocorrect: false,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [_CardNumberTextInputFormatter()],
+                            decoration: _paymentInputDecoration(
+                              'Numéro de la carte',
+                              prefixIcon: const Icon(Icons.credit_card,
+                                  color: Color(0xFF9CA3AF), size: 18),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      const Text(
-                        'NOM SUR LA CARTE',
-                        style: TextStyle(
-                          color: Color(0xFF6B7280),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 10,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: cardholderController,
-                        autofillHints: const <String>[],
-                        enableSuggestions: false,
-                        autocorrect: false,
-                        decoration: _paymentInputDecoration('M. Jean Dupont'),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'NUMÉRO DE CARTE',
-                        style: TextStyle(
-                          color: Color(0xFF6B7280),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 10,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      TextField(
-                        controller: cardNumberController,
-                        autofillHints: const <String>[],
-                        enableSuggestions: false,
-                        autocorrect: false,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          _CardNumberTextInputFormatter(),
-                        ],
-                        decoration: _paymentInputDecoration(
-                          '0000 0000 0000 0000',
-                          prefixIcon: const Icon(Icons.credit_card,
-                              color: Color(0xFF9CA3AF), size: 16),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'EXPIRATION',
-                                  style: TextStyle(
-                                    color: Color(0xFF6B7280),
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 10,
-                                    letterSpacing: 0.4,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                TextField(
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
                                   controller: expiryController,
                                   autofillHints: const <String>[],
                                   enableSuggestions: false,
                                   autocorrect: false,
                                   keyboardType: TextInputType.number,
                                   inputFormatters: [
-                                    _ExpiryDateTextInputFormatter(),
+                                    _ExpiryDateTextInputFormatter()
                                   ],
-                                  textAlign: TextAlign.center,
-                                  decoration: _paymentInputDecoration('MM/AA'),
+                                  decoration: _paymentInputDecoration('Mois'),
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'CVC',
-                                  style: TextStyle(
-                                    color: Color(0xFF6B7280),
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 10,
-                                    letterSpacing: 0.4,
-                                  ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: yearController,
+                                  autofillHints: const <String>[],
+                                  enableSuggestions: false,
+                                  autocorrect: false,
+                                  decoration: _paymentInputDecoration('Année'),
                                 ),
-                                const SizedBox(height: 6),
-                                TextField(
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
                                   controller: cvcController,
                                   autofillHints: const <String>[],
                                   enableSuggestions: false,
@@ -935,158 +717,127 @@ class CoursesView extends GetView<CourseController> {
                                     FilteringTextInputFormatter.digitsOnly,
                                     LengthLimitingTextInputFormatter(3),
                                   ],
-                                  textAlign: TextAlign.center,
                                   obscureText: true,
                                   obscuringCharacter: '•',
-                                  decoration: _paymentInputDecoration('***'),
+                                  decoration:
+                                      _paymentInputDecoration('Code de sûreté'),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: cardholderController,
+                            autofillHints: const <String>[],
+                            enableSuggestions: false,
+                            autocorrect: false,
+                            decoration:
+                                _paymentInputDecoration('Le nom du détenteur'),
+                          ),
+                          const SizedBox(height: 10),
+                          InkWell(
+                            onTap: () => setState(
+                                () => sendEmailReceipt = !sendEmailReceipt),
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: Checkbox(
+                                    value: sendEmailReceipt,
+                                    onChanged: (value) => setState(() =>
+                                        sendEmailReceipt = value ?? false),
+                                    activeColor: const Color(0xFF0B5FB3),
+                                    checkColor: Colors.white,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    side: const BorderSide(
+                                        color: Color(0xFF9CA3AF), width: 1),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                const Text(
+                                  'Adresse e-mail',
+                                  style: TextStyle(
+                                    color: Color(0xFF374151),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
+                          const SizedBox(height: 8),
+                          TextField(
+                            controller: emailController,
+                            autofillHints: const <String>[],
+                            enableSuggestions: false,
+                            autocorrect: false,
+                            enabled: sendEmailReceipt,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: _paymentInputDecoration(''),
+                          ),
+                          const SizedBox(height: 24),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 52,
+                            child: Obx(
+                              () => ElevatedButton(
+                                onPressed: controller
+                                        .isProcessingEnrollment.value
+                                    ? null
+                                    : () async {
+                                        Navigator.of(dialogContext).pop();
+                                        final success = await controller
+                                            .enrollInCourseWithPayment(course);
+                                        if (!success) return;
+                                      },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0B5FB3),
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                                child: controller.isProcessingEnrollment.value
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Text(
+                                        'Paiement $amountLabel',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 18,
+                                        ),
+                                      ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          _buildGatewayFooterBrands(),
                         ],
                       ),
-                      const SizedBox(height: 18),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFFFFF),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: const Color(0xFFE5E7EB)),
-                        ),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 32,
-                              child: Stack(
-                                alignment: Alignment.centerLeft,
-                                children: [
-                                  Container(
-                                    width: 16,
-                                    height: 16,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: Color(0xFFEF4444),
-                                    ),
-                                  ),
-                                  Positioned(
-                                    left: 10,
-                                    child: Container(
-                                      width: 16,
-                                      height: 16,
-                                      decoration: const BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Color(0xFFF97316),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Text(
-                              'Visa',
-                              style: TextStyle(
-                                color: Color(0xFF1A1F71),
-                                fontWeight: FontWeight.w900,
-                                fontStyle: FontStyle.italic,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Expanded(
-                              child: Text(
-                                'PAIEMENT CRYPTÉ SSL 256 BITS',
-                                style: TextStyle(
-                                  color: Color(0xFF6B7280),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 8,
-                                  letterSpacing: 0.3,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.right,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(22, 10, 22, 22),
-                  child: Row(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8.0, right: 16.0),
-                        child: TextButton(
-                          onPressed: () => Navigator.of(dialogContext).pop(),
-                          child: const Text(
-                            'Annuler',
-                            style: TextStyle(
-                              color: Color(0xFF111827),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: SizedBox(
-                          height: 44,
-                          child: Obx(
-                            () => ElevatedButton(
-                              onPressed: controller.isProcessingEnrollment.value
-                                  ? null
-                                  : () async {
-                                      Navigator.of(dialogContext).pop();
-                                      final success = await controller
-                                          .enrollInCourseWithPayment(
-                                        course,
-                                      );
-                                      if (!success) return;
-                                    },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF74A7F2),
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: controller.isProcessingEnrollment.value
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : Text(
-                                      payButtonLabel,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                        fontSize: 16,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     ).whenComplete(() {
       cardholderController.dispose();
       cardNumberController.dispose();
+      yearController.dispose();
       expiryController.dispose();
       cvcController.dispose();
+      emailController.dispose();
     });
   }
 
@@ -1097,23 +848,163 @@ class CoursesView extends GetView<CourseController> {
       hintStyle: const TextStyle(
         color: Color(0xFF9CA3AF),
         fontWeight: FontWeight.w500,
+        fontSize: 14,
       ),
       prefixIcon: prefixIcon,
       filled: true,
       fillColor: const Color(0xFFFFFFFF),
       isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFF94A3B8), width: 1),
+        borderRadius: BorderRadius.circular(4),
+        borderSide: const BorderSide(color: Color(0xFF0B5FB3), width: 1.2),
+      ),
+    );
+  }
+
+  Widget _buildGatewayLogoHeader() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF97316), Color(0xFFDC2626), Color(0xFF2563EB)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: const Icon(Icons.credit_card, color: Colors.white, size: 17),
+        ),
+        const SizedBox(width: 8),
+        const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'ClicToPay.com.tn',
+              style: TextStyle(
+                color: Color(0xFF0B4FA2),
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.2,
+              ),
+            ),
+            Text(
+              'by Monétique Tunisie',
+              style: TextStyle(
+                color: Color(0xFF6B7280),
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGatewayFooterBrands() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_outline, size: 16, color: Color(0xFF9CA3AF)),
+            SizedBox(width: 6),
+            Text(
+              'Paiement sécurisé',
+              style: TextStyle(
+                color: Color(0xFF9CA3AF),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        _mastercardBrandChip(),
+        _paymentChip(label: 'VISA', color: const Color(0xFF1E3A8A)),
+        _paymentChip(label: 'C-Cash', color: const Color(0xFF6B7280)),
+        _paymentChip(label: 'e-DINAR', color: const Color(0xFF6B7280)),
+      ],
+    );
+  }
+
+  Widget _paymentChip({required String label, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFD1D5DB)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _mastercardBrandChip() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFD1D5DB)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            width: 18,
+            height: 12,
+            child: Stack(
+              children: const [
+                Positioned(
+                  left: 0,
+                  child: CircleAvatar(
+                    radius: 6,
+                    backgroundColor: Color(0xFFEA4335),
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  child: CircleAvatar(
+                    radius: 6,
+                    backgroundColor: Color(0xFFF59E0B),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 5),
+          const Text(
+            'mastercard',
+            style: TextStyle(
+              color: Color(0xFF6B7280),
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

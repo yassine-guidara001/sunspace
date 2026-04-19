@@ -184,6 +184,7 @@ class _ReservationModalState extends State<ReservationModal>
   }
 
   bool get _canSubmit {
+    if (!widget.space.isAvailable) return false;
     if (_participants < 1 || _participants > widget.space.maxPersons)
       return false;
     if (_fullDay) return true;
@@ -192,6 +193,13 @@ class _ReservationModalState extends State<ReservationModal>
   }
 
   Future<void> _submit() async {
+    if (!widget.space.isAvailable) {
+      setState(() {
+        _errorMessage =
+            'Cet espace est actuellement occupé ou en maintenance. Réservation impossible.';
+      });
+      return;
+    }
     if (!_canSubmit) return;
     setState(() {
       _isLoading = true;
