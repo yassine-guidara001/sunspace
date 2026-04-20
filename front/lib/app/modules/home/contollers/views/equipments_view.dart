@@ -9,26 +9,26 @@ class EquipmentsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCompact = MediaQuery.of(context).size.width < 920;
+    final isCompact = MediaQuery.of(context).size.width < 720;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       body: Row(
         children: [
-          CustomSidebar(),
+          if (!isCompact) CustomSidebar(),
           Expanded(
             child: Column(
               children: [
-                _buildAppBar(),
+                _buildAppBar(context, isCompact),
                 Expanded(
                   child: SingleChildScrollView(
                     padding: EdgeInsets.all(isCompact ? 16 : 32),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildHeader(),
+                        _buildHeader(isCompact),
                         const SizedBox(height: 32),
-                        _buildFilterBar(),
+                        _buildFilterBar(isCompact),
                         const SizedBox(height: 24),
                         _buildEquipmentsTable(isCompact),
                         const SizedBox(height: 20),
@@ -45,44 +45,54 @@ class EquipmentsView extends StatelessWidget {
     );
   }
 
-  Widget _buildAppBar() {
+  Widget _buildAppBar(BuildContext context, bool isCompact) {
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: isCompact ? 60 : 70,
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 24),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
       child: Row(
         children: [
-          Container(
-            width: 320,
-            height: 40,
-            decoration: BoxDecoration(
-              color: const Color(0xFFF1F5F9),
-              borderRadius: BorderRadius.circular(8),
+          if (isCompact) ...[
+            IconButton(
+              tooltip: 'Menu',
+              onPressed: () => CustomSidebar.openDrawerMenu(context),
+              icon: const Icon(Icons.menu, color: Color(0xFF475569)),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                const Icon(Icons.search, color: Colors.grey, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    onChanged: (val) {},
-                    decoration: const InputDecoration(
-                      hintText: "Rechercher...",
-                      hintStyle: TextStyle(
-                        color: Colors.grey,
-                      ),
-                      border: InputBorder.none,
-                      isDense: true,
-                    ),
-                  ),
+          ] else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: Container(
+                width: double.infinity,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              ],
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search, color: Colors.grey, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        onChanged: (val) {},
+                        decoration: const InputDecoration(
+                          hintText: "Rechercher...",
+                          hintStyle: TextStyle(
+                            color: Colors.grey,
+                          ),
+                          border: InputBorder.none,
+                          isDense: true,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
           const Spacer(),
           const Icon(Icons.notifications_outlined,
               color: Colors.grey, size: 20),
@@ -92,114 +102,142 @@ class EquipmentsView extends StatelessWidget {
             backgroundColor: Color(0xFFE2E8F0),
             child: Icon(Icons.person, color: Colors.blue, size: 18),
           ),
-          const SizedBox(width: 8),
-          const Text("intern",
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.w500,
-              )),
+          if (!isCompact) ...[
+            const SizedBox(width: 8),
+            const Text("intern",
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w500,
+                )),
+          ],
           const Icon(Icons.keyboard_arrow_down, color: Colors.black, size: 18),
         ],
       ),
     );
   }
 
-  Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              "Gestion des Équipements",
-              style: TextStyle(
-                  fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
-            ),
-            Text(
-              "Gérez tous les équipements de vos espaces",
-              style: TextStyle(
-                color: Colors.grey,
+  Widget _buildHeader(bool isCompact) {
+    return LayoutBuilder(builder: (context, constraints) {
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Gestion des Équipements",
+                style: TextStyle(
+                    fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
+              ),
+              Text(
+                "Gérez tous les équipements de vos espaces",
+                style: TextStyle(
+                  color: Colors.grey,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(
+            width: isCompact ? constraints.maxWidth : null,
+            child: ElevatedButton.icon(
+              onPressed: () => _showEquipmentFormDialog(Get.context!),
+              icon: const Icon(Icons.add, size: 18, color: Colors.white),
+              label: const Text("Ajouter un équipement"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF007BF9),
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                elevation: 0,
               ),
             ),
-          ],
-        ),
-        ElevatedButton.icon(
-          onPressed: () => _showEquipmentFormDialog(Get.context!),
-          icon: const Icon(Icons.add, size: 18, color: Colors.white),
-          label: const Text("Ajouter un équipement"),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF007BF9),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            elevation: 0,
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
-  Widget _buildFilterBar() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 45,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.search, color: Colors.grey, size: 18),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    onChanged: controller.searchEquipments,
-                    decoration: const InputDecoration(
-                      hintText: "Rechercher un équipement...",
-                      hintStyle: TextStyle(
-                        color: Colors.grey,
+  Widget _buildFilterBar(bool isCompact) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final searchWidth =
+          isCompact ? constraints.maxWidth : (constraints.maxWidth - 220);
+      return Wrap(
+        spacing: 16,
+        runSpacing: 12,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          SizedBox(
+            width: searchWidth > 0 ? searchWidth : constraints.maxWidth,
+            child: Container(
+              height: 45,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.search, color: Colors.grey, size: 18),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextField(
+                      onChanged: controller.searchEquipments,
+                      decoration: const InputDecoration(
+                        hintText: "Rechercher un équipement...",
+                        hintStyle: TextStyle(
+                          color: Colors.grey,
+                        ),
+                        border: InputBorder.none,
+                        isDense: true,
                       ),
-                      border: InputBorder.none,
-                      isDense: true,
                     ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Container(
-          height: 45,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFFE2E8F0)),
-          ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: "Tous les statuts",
-              style: const TextStyle(
-                color: Colors.black,
+                ],
               ),
-              icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-              items: ["Tous les statuts", "Disponible", "Maintenance", "Occupé"]
-                  .map((String value) => DropdownMenuItem<String>(
-                      value: value, child: Text(value)))
-                  .toList(),
-              onChanged: (val) {},
             ),
           ),
-        ),
-      ],
-    );
+          SizedBox(
+            width: isCompact ? constraints.maxWidth : 200,
+            child: Container(
+              height: 45,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: "Tous les statuts",
+                  isExpanded: true,
+                  style: const TextStyle(
+                    color: Colors.black,
+                  ),
+                  icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                  items: [
+                    "Tous les statuts",
+                    "Disponible",
+                    "Maintenance",
+                    "Occupé"
+                  ]
+                      .map((String value) => DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value, overflow: TextOverflow.ellipsis)))
+                      .toList(),
+                  onChanged: (val) {},
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    });
   }
 
   Widget _buildEquipmentsTable(bool isCompact) {

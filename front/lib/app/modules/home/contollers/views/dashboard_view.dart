@@ -61,12 +61,15 @@ class DashboardView extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = MediaQuery.of(context).size.width < 920;
+
     return Scaffold(
       backgroundColor: const Color(0xFFE8EDF4),
-      floatingActionButton: const SunspaceAiFab(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: isMobile ? null : const SunspaceAiFab(),
+      floatingActionButtonLocation:
+          isMobile ? null : FloatingActionButtonLocation.endFloat,
       body: Row(children: [
-        const CustomSidebar(),
+        if (!isMobile) const CustomSidebar(),
         Expanded(
           child: Column(children: [
             const DashboardTopBar(),
@@ -99,335 +102,250 @@ class DashboardView extends GetView<HomeController> {
   }
 }
 
+class _MobileBottomNav extends StatelessWidget {
+  const _MobileBottomNav({required this.controller});
+
+  final HomeController controller;
+
+  int _selectedIndexFromMenu(int menuIndex) {
+    if (menuIndex == 0) return 0;
+    if (menuIndex == 1) return 1;
+    if (menuIndex == 2) return 2;
+    return -1;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final compact = screenHeight < 700;
+    final rawBottomInset = MediaQuery.viewPaddingOf(context).bottom;
+    final bottomInset =
+        rawBottomInset > 6 ? 6.0 : (rawBottomInset < 2 ? 2.0 : rawBottomInset);
+
+    return SafeArea(
+      top: false,
+      bottom: false,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: Color(0xFFE2E8F0))),
+        ),
+        padding: EdgeInsets.fromLTRB(
+            8, compact ? 4 : 6, 8, compact ? 4 : bottomInset),
+        child: Obx(() {
+          final selected =
+              _selectedIndexFromMenu(controller.selectedMenu.value);
+
+          return Row(
+            children: [
+              Expanded(
+                child: _MobileNavItem(
+                  icon: Icons.grid_view,
+                  label: 'Tableau',
+                  compact: compact,
+                  selected: selected == 0,
+                  onTap: () => controller.changeMenu(0, Routes.HOME),
+                ),
+              ),
+              Expanded(
+                child: _MobileNavItem(
+                  icon: Icons.location_on_outlined,
+                  label: 'Réserver',
+                  compact: compact,
+                  selected: selected == 1,
+                  onTap: () => controller.changeMenu(1, Routes.PLAN),
+                ),
+              ),
+              Expanded(
+                child: _MobileNavItem(
+                  icon: Icons.calendar_today_outlined,
+                  label: 'Mes',
+                  compact: compact,
+                  selected: selected == 2,
+                  onTap: () => controller.changeMenu(2, Routes.MY_RESERVATIONS),
+                ),
+              ),
+              Expanded(
+                child: _MobileNavItem(
+                  icon: Icons.menu,
+                  label: 'Menu',
+                  compact: compact,
+                  selected: false,
+                  onTap: () => CustomSidebar.openDrawerMenu(context),
+                ),
+              ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _MobileNavItem extends StatelessWidget {
+  const _MobileNavItem({
+    required this.icon,
+    required this.label,
+    required this.compact,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool compact;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeColor =
+        selected ? const Color(0xFF0B6BFF) : const Color(0xFF64748B);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: compact ? 44 : 52,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: compact ? 17 : 19, color: activeColor),
+            SizedBox(height: compact ? 2 : 3),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: compact ? 10 : 11,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                color: activeColor,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Dashboard Enseignant ─────────────────────────────────────────────────────
 class _TeacherDashboard extends StatelessWidget {
   final HomeController controller;
   const _TeacherDashboard({required this.controller});
 
-  String get _name {
-    final raw = controller.currentUsername.value.trim();
-    final email = controller.currentEmail.value.trim();
-    if (raw.isEmpty || raw.toLowerCase() == 'utilisateur') {
-      return email.contains('@') ? email.split('@').first : email;
-    }
-    return raw;
-  }
-
   @override
   Widget build(BuildContext context) {
+    final cards = [
+      StatCard(
+        title: 'Sessions',
+        value: '12',
+        subtitle: 'Ce mois',
+        icon: Icons.calendar_month_outlined,
+        iconColor: const Color(0xFF0B6BFF),
+      ),
+      StatCard(
+        title: 'Étudiants',
+        value: '86',
+        subtitle: 'Actifs',
+        icon: Icons.people_outline,
+        iconColor: const Color(0xFF16A34A),
+      ),
+      StatCard(
+        title: 'Formations',
+        value: '7',
+        subtitle: 'Publiées',
+        icon: Icons.menu_book_outlined,
+        iconColor: const Color(0xFFF59E0B),
+      ),
+    ];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ── Header ──────────────────────────────────────────────────────
-        Obx(() =>
-            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Text('Tableau de bord',
-                  style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0F172A))),
-              const SizedBox(height: 4),
-              Text('Bienvenue $_name',
-                  style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w500,
-                      color: Color(0xFF334155))),
-            ])),
-        const SizedBox(height: 20),
-
-        // ── Layout desktop ───────────────────────────────────────────────
-        LayoutBuilder(builder: (ctx, constraints) {
-          final desktop = constraints.maxWidth >= 1000;
-          final mainCard = _buildTeacherTasks();
-          final sideCard = _buildOptimizationCard();
-
-          if (desktop) {
-            return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Expanded(flex: 3, child: mainCard),
-              const SizedBox(width: 16),
-              Expanded(flex: 2, child: sideCard),
-            ]);
-          }
+        Obx(() {
+          final raw = controller.currentUsername.value.trim();
+          final name = raw.isEmpty ? 'Enseignant' : raw;
           return Column(
-              children: [mainCard, const SizedBox(height: 16), sideCard]);
-        }),
-
-        const SizedBox(height: 16),
-        _buildQuickActions(),
-      ],
-    );
-  }
-
-  Widget _buildTeacherTasks() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFD4DCE6)),
-      ),
-      padding: const EdgeInsets.all(20),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const Text('Gestion des Enseignements',
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF0F172A))),
-        const SizedBox(height: 4),
-        const Text('Tâches pédagogiques en attente',
-            style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8))),
-        const SizedBox(height: 20),
-        _taskItem(
-          icon: Icons.menu_book_outlined,
-          iconColor: const Color(0xFF0B6BFF),
-          iconBg: const Color(0xFFDBEAFE),
-          title: 'Gérer mes formations',
-          subtitle: 'Créez et modifiez vos cours',
-          onTap: () => controller.changeMenu(8, Routes.FORMATIONS),
-        ),
-        const Divider(height: 24),
-        _taskItem(
-          icon: Icons.people_outline,
-          iconColor: const Color(0xFF16A34A),
-          iconBg: const Color(0xFFDCFCE7),
-          title: 'Suivi des étudiants',
-          subtitle: 'Consultez les progrès de vos élèves',
-          onTap: () => controller.changeMenu(10, Routes.TEACHER_STUDENTS),
-        ),
-        const Divider(height: 24),
-        _taskItem(
-          icon: Icons.calendar_month_outlined,
-          iconColor: const Color(0xFFF59E0B),
-          iconBg: const Color(0xFFFEF3C7),
-          title: 'Planifier une session',
-          subtitle: 'Organisez une nouvelle session de formation',
-          onTap: () => controller.changeMenu(9, Routes.SESSIONS),
-        ),
-      ]),
-    );
-  }
-
-  Widget _taskItem({
-    required IconData icon,
-    required Color iconColor,
-    required Color iconBg,
-    required String title,
-    required String subtitle,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-                color: iconBg, borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, color: iconColor, size: 20),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-              child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 14)),
-                Text(subtitle,
-                    style: const TextStyle(
-                        fontSize: 12, color: Color(0xFF64748B))),
-              ])),
-          const Icon(Icons.chevron_right, color: Color(0xFF94A3B8), size: 20),
-        ]),
-      ),
-    );
-  }
-
-  Widget _buildOptimizationCard() {
-    return Column(children: [
-      Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1664FF), Color(0xFF2684FF)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        padding: const EdgeInsets.all(18),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Optimisez votre temps',
-              style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 17)),
-          const SizedBox(height: 8),
-          const Text(
-            'Réservez vos créneaux de formation à l\'avance pour garantir votre place.',
-            style:
-                TextStyle(color: Color(0xFFE5EEFF), height: 1.4, fontSize: 13),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => controller.changeMenu(1, Routes.PLAN),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: const Color(0xFF1458E0),
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Tableau de bord',
+                style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF0F172A)),
               ),
-              child: const Text('Réserver maintenant',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
-            ),
-          ),
-        ]),
-      ),
-      const SizedBox(height: 14),
-      // Cours populaires
-      Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFD4DCE6)),
+              Text(
+                'Bienvenue $name',
+                style: const TextStyle(fontSize: 18, color: Color(0xFF334155)),
+              ),
+            ],
+          );
+        }),
+        const SizedBox(height: 20),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cols = constraints.maxWidth >= 1000
+                ? 3
+                : constraints.maxWidth >= 680
+                    ? 2
+                    : 1;
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: cards.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: cols,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 2.2,
+              ),
+              itemBuilder: (_, i) => cards[i],
+            );
+          },
         ),
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('COURS POPULAIRES',
-              style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF94A3B8),
-                  letterSpacing: 1)),
-          const SizedBox(height: 12),
-          _courseItem('Démarrage avec Next.js', 324, 4.8),
-          const SizedBox(height: 10),
-          _courseItem('Design UX/UI', 412, 4.9),
-          const SizedBox(height: 10),
-          _courseItem('Maîtriser TypeScript', 189, 4.7),
-        ]),
-      ),
-    ]);
-  }
-
-  Widget _courseItem(String title, int students, double rating) {
-    return Row(children: [
-      Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-            color: const Color(0xFFE2ECFF),
-            borderRadius: BorderRadius.circular(8)),
-        child: const Icon(Icons.school_outlined,
-            size: 14, color: Color(0xFF1D4ED8)),
-      ),
-      const SizedBox(width: 10),
-      Expanded(
-          child: Text(title,
-              style:
-                  const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
-      Row(children: [
-        const Icon(Icons.people_outline, size: 12, color: Color(0xFF64748B)),
-        const SizedBox(width: 2),
-        Text('$students',
-            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-        const SizedBox(width: 8),
-        const Icon(Icons.star_rounded, size: 12, color: Color(0xFFF59E0B)),
-        const SizedBox(width: 2),
-        Text('$rating',
-            style: const TextStyle(fontSize: 11, color: Color(0xFF64748B))),
-      ]),
-    ]);
-  }
-
-  Widget _buildQuickActions() {
-    final actions = [
-      {
-        'label': 'Réserver',
-        'icon': Icons.location_on_outlined,
-        'index': 1,
-        'route': Routes.PLAN
-      },
-      {
-        'label': 'Mes Formations',
-        'icon': Icons.menu_book_outlined,
-        'index': 8,
-        'route': Routes.FORMATIONS
-      },
-      {
-        'label': 'Catalogue',
-        'icon': Icons.school_outlined,
-        'index': 8,
-        'route': Routes.FORMATIONS
-      },
-      {
-        'label': 'Mon Profil',
-        'icon': Icons.person_outline,
-        'index': 0,
-        'route': Routes.HOME
-      },
-    ];
-
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Text('Actions rapides',
+        const SizedBox(height: 16),
+        const Text(
+          'Actions rapides',
           style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF0F172A))),
-      const SizedBox(height: 12),
-      LayoutBuilder(builder: (ctx, constraints) {
-        final cols = constraints.maxWidth >= 900 ? 4 : 2;
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: cols,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 4.0,
-          ),
-          itemCount: actions.length,
-          itemBuilder: (_, i) {
-            final a = actions[i];
-            final isFirst = i == 0;
-            return InkWell(
-              onTap: () => controller.changeMenu(
-                  a['index'] as int, a['route'] as String),
-              borderRadius: BorderRadius.circular(10),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFD4DCE6)),
-                ),
-                child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(a['icon'] as IconData,
-                          size: 15,
-                          color: isFirst
-                              ? const Color(0xFF0B6BFF)
-                              : const Color(0xFF475569)),
-                      const SizedBox(height: 5),
-                      Text(a['label'] as String,
-                          style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: isFirst
-                                  ? const Color(0xFF0B6BFF)
-                                  : const Color(0xFF0F172A))),
-                    ]),
+              color: Color(0xFF0F172A)),
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final cols = constraints.maxWidth >= 900 ? 4 : 2;
+            final actions = [
+              _ActionData(
+                  'Réserver', Icons.location_on_outlined, 1, Routes.PLAN),
+              _ActionData(
+                  'Formations', Icons.menu_book_outlined, 8, Routes.FORMATIONS),
+              _ActionData('Étudiants', Icons.people_outline, 10,
+                  Routes.TEACHER_STUDENTS),
+              _ActionData('Sessions', Icons.calendar_month_outlined, 9,
+                  Routes.SESSIONS),
+            ];
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: actions.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: cols,
+                mainAxisSpacing: 10,
+                crossAxisSpacing: 10,
+                childAspectRatio: 4.0,
+              ),
+              itemBuilder: (_, i) => QuickActionButton(
+                label: actions[i].label,
+                icon: actions[i].icon,
+                onTap: () => controller.changeMenu(
+                    actions[i].menuIndex, actions[i].route),
               ),
             );
           },
-        );
-      }),
-    ]);
+        ),
+      ],
+    );
   }
 }
 

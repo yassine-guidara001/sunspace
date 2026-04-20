@@ -23,7 +23,7 @@ class TeacherStudentsView extends GetView<TeacherStudentsController> {
       backgroundColor: _pageBg,
       body: Row(
         children: [
-          const CustomSidebar(),
+          if (!isCompact) const CustomSidebar(),
           Expanded(
             child: Column(
               children: [

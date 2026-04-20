@@ -49,102 +49,120 @@ class ReservationsView extends GetView<ReservationsController> {
 
   // ── Header ────────────────────────────────────────────────────────────────
   Widget _buildHeader() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFC), Color(0xFFF0FDF4)],
-        ),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withOpacity(0.04),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+    return LayoutBuilder(builder: (context, constraints) {
+      final isCompact = constraints.maxWidth < 760;
+
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(22),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFFFFFFFF), Color(0xFFF8FAFC), Color(0xFFF0FDF4)],
           ),
-        ],
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withOpacity(0.04),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: isCompact
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeaderIntro(),
+                  const SizedBox(height: 14),
+                  _buildHeaderInfoCard(),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildHeaderIntro()),
+                  const SizedBox(width: 18),
+                  _buildHeaderInfoCard(),
+                ],
+              ),
+      );
+    });
+  }
+
+  Widget _buildHeaderIntro() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFDCFCE7),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: const Text(
+            'Gestion des réservations',
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF166534),
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Réservations',
+          style: TextStyle(
+            fontWeight: FontWeight.w800,
+            fontSize: 26,
+            color: Color(0xFF0F172A),
+            height: 1.1,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          "Gérez toutes les réservations d'espaces avec une vue claire sur les statuts, paiements et actions rapides.",
+          style: TextStyle(
+            color: Color(0xFF64748B),
+            fontSize: 13,
+            height: 1.5,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderInfoCard() {
+    return Container(
+      width: 140,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Row(
+      child: const Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFDCFCE7),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: const Text(
-                    'Gestion des réservations',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF166534),
-                      letterSpacing: 0.2,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  'Réservations',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 26,
-                    color: Color(0xFF0F172A),
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  "Gérez toutes les réservations d'espaces avec une vue claire sur les statuts, paiements et actions rapides.",
-                  style: TextStyle(
-                    color: Color(0xFF64748B),
-                    fontSize: 13,
-                    height: 1.5,
-                  ),
-                ),
-              ],
+          Icon(Icons.calendar_month_outlined,
+              color: Color(0xFF22C55E), size: 28),
+          SizedBox(height: 10),
+          Text(
+            'Suivi temps réel',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F172A),
             ),
           ),
-          const SizedBox(width: 18),
-          Container(
-            width: 140,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.calendar_month_outlined,
-                    color: Color(0xFF22C55E), size: 28),
-                SizedBox(height: 10),
-                Text(
-                  'Suivi temps réel',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Statuts, paiements et actions',
-                  style: TextStyle(
-                      fontSize: 11, color: Color(0xFF64748B), height: 1.4),
-                ),
-              ],
-            ),
+          SizedBox(height: 4),
+          Text(
+            'Statuts, paiements et actions',
+            style:
+                TextStyle(fontSize: 11, color: Color(0xFF64748B), height: 1.4),
           ),
         ],
       ),
@@ -385,24 +403,111 @@ class ReservationsView extends GetView<ReservationsController> {
       );
     }
 
+    return LayoutBuilder(builder: (context, constraints) {
+      final isCompact = constraints.maxWidth < 980;
+      if (isCompact) {
+        return Column(
+          children: controller.reservations
+              .map((r) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildMobileReservationCard(r),
+                  ))
+              .toList(),
+        );
+      }
+
+      return Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0F172A).withOpacity(0.03),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(children: [
+          _buildTableHeader(),
+          ...controller.reservations.map((r) => _buildTableRow(r)),
+        ]),
+      );
+    });
+  }
+
+  Widget _buildMobileReservationCard(ReservationModel r) {
     return Container(
       width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE2E8F0)),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withOpacity(0.03),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            r.spaceName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            r.userName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          if (r.userEmail.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              r.userEmail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            _formatDateTimeRange(r.dateTime, r.endDateTime),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF475569),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${r.amount.toStringAsFixed(0)} DT',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: Color(0xFF0F172A)),
+                ),
+              ),
+              _buildStatusBadge(r.status),
+            ],
           ),
         ],
       ),
-      child: Column(children: [
-        _buildTableHeader(),
-        ...controller.reservations.map((r) => _buildTableRow(r)),
-      ]),
     );
   }
 
@@ -459,6 +564,8 @@ class ReservationsView extends GetView<ReservationsController> {
                   children: [
                     Row(children: [
                       Text(r.userName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
@@ -468,6 +575,8 @@ class ReservationsView extends GetView<ReservationsController> {
                     ]),
                     if (r.userEmail.isNotEmpty)
                       Text(r.userEmail,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                               fontSize: 11, color: Color(0xFF94A3B8))),
                     if (r.userPhone.isNotEmpty)

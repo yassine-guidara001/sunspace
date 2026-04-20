@@ -14,9 +14,11 @@ class SettingsView extends GetView<SettingsController> {
       backgroundColor: const Color(0xFFEAF0F8),
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 1080;
+
           return Row(
             children: [
-              if (constraints.maxWidth >= 1080) const CustomSidebar(),
+              if (!isCompact) const CustomSidebar(),
               Expanded(
                 child: Column(
                   children: [
@@ -54,28 +56,33 @@ class SettingsView extends GetView<SettingsController> {
   }
 
   Widget _buildPageHeader() {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Paramètres',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF0F172A),
-            height: 1.1,
-          ),
-        ),
-        SizedBox(height: 4),
-        Text(
-          'Gérez vos préférences et votre sécurité',
-          style: TextStyle(
-            color: Color(0xFF64748B),
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 560;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Paramètres',
+              style: TextStyle(
+                fontSize: compact ? 24 : 28,
+                fontWeight: FontWeight.w800,
+                color: const Color(0xFF0F172A),
+                height: 1.1,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Gérez vos préférences et votre sécurité',
+              style: const TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -86,17 +93,12 @@ class SettingsView extends GetView<SettingsController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              _IconBadge(
-                icon: Icons.lock_outline_rounded,
-                color: const Color(0xFF0B6BFF),
-                background: const Color(0xFFE7F0FF),
-              ),
-              const SizedBox(width: 12),
-              const Column(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 520;
+              final header = Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+                children: const [
                   Text(
                     'Sécurité',
                     style: TextStyle(
@@ -115,8 +117,35 @@ class SettingsView extends GetView<SettingsController> {
                     ),
                   ),
                 ],
-              ),
-            ],
+              );
+
+              if (compact) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _IconBadge(
+                      icon: Icons.lock_outline_rounded,
+                      color: const Color(0xFF0B6BFF),
+                      background: const Color(0xFFE7F0FF),
+                    ),
+                    const SizedBox(height: 12),
+                    header,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  _IconBadge(
+                    icon: Icons.lock_outline_rounded,
+                    color: const Color(0xFF0B6BFF),
+                    background: const Color(0xFFE7F0FF),
+                  ),
+                  const SizedBox(width: 12),
+                  header,
+                ],
+              );
+            },
           ),
           const SizedBox(height: 20),
           Obx(() {
@@ -178,19 +207,43 @@ class SettingsView extends GetView<SettingsController> {
                   obscureText: true,
                 ),
                 const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Obx(
-                      () => ElevatedButton(
-                        onPressed: controller.isSavingPassword.value
-                            ? null
-                            : controller.savePasswordChange,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0B6BFF),
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: const Color(0xFF93C5FD),
-                          disabledForegroundColor: Colors.white,
-                          elevation: 0,
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 420;
+                    final buttons = [
+                      Obx(
+                        () => ElevatedButton(
+                          onPressed: controller.isSavingPassword.value
+                              ? null
+                              : controller.savePasswordChange,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF0B6BFF),
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor: const Color(0xFF93C5FD),
+                            disabledForegroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            textStyle: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          child: Text(
+                            controller.isSavingPassword.value
+                                ? 'Enregistrement...'
+                                : 'Enregistrer',
+                          ),
+                        ),
+                      ),
+                      OutlinedButton(
+                        onPressed: controller.cancelPasswordChange,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFCBD5E1)),
+                          foregroundColor: const Color(0xFF0F172A),
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 12),
                           shape: RoundedRectangleBorder(
@@ -201,32 +254,28 @@ class SettingsView extends GetView<SettingsController> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        child: Text(
-                          controller.isSavingPassword.value
-                              ? 'Enregistrement...'
-                              : 'Enregistrer',
-                        ),
+                        child: const Text('Annuler'),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    OutlinedButton(
-                      onPressed: controller.cancelPasswordChange,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Color(0xFFCBD5E1)),
-                        foregroundColor: const Color(0xFF0F172A),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        textStyle: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      child: const Text('Annuler'),
-                    ),
-                  ],
+                    ];
+
+                    if (compact) {
+                      return Column(
+                        children: [
+                          SizedBox(width: double.infinity, child: buttons[0]),
+                          const SizedBox(height: 8),
+                          SizedBox(width: double.infinity, child: buttons[1]),
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        buttons[0],
+                        const SizedBox(width: 8),
+                        buttons[1],
+                      ],
+                    );
+                  },
                 ),
               ],
             );

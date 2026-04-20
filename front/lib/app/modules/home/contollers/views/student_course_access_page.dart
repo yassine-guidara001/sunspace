@@ -305,7 +305,7 @@ class _StudentCourseAccessPageState extends State<StudentCourseAccessPage> {
       backgroundColor: _bg,
       body: Row(
         children: [
-          const CustomSidebar(),
+          if (!isCompact) const CustomSidebar(),
           Expanded(
             child: Column(
               children: [

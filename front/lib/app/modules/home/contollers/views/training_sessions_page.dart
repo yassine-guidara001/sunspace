@@ -54,31 +54,41 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
-            children: [
-              Icon(Icons.event_note_outlined,
-                  color: Color(0xFF0B6BFF), size: 28),
-              SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Sessions de formation',
-                    style: TextStyle(
-                      height: 1,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF0F172A),
-                    ),
+          LayoutBuilder(builder: (context, constraints) {
+            final compact = constraints.maxWidth < 520;
+            return Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                const Icon(Icons.event_note_outlined,
+                    color: Color(0xFF0B6BFF), size: 28),
+                SizedBox(
+                  width: compact ? constraints.maxWidth - 36 : null,
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Sessions de formation',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          height: 1,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Retrouvez ici toutes les sessions de formation disponibles et vos inscriptions.',
+                        style: TextStyle(color: _textMuted),
+                      ),
+                    ],
                   ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Retrouvez ici toutes les sessions de formation disponibles et vos inscriptions.',
-                    style: TextStyle(color: _textMuted),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            );
+          }),
           const SizedBox(height: 14),
           _buildStudentTabs(),
           const SizedBox(height: 14),
@@ -182,6 +192,9 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
         ),
         child: Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
           style: TextStyle(
             color: const Color(0xFF111827),
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
@@ -247,28 +260,40 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
             ],
           ),
           const SizedBox(height: 14),
-          Row(
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              const Icon(
-                Icons.calendar_today_outlined,
-                size: 14,
-                color: Color(0xFF6B7280),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.calendar_today_outlined,
+                    size: 14,
+                    color: Color(0xFF6B7280),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _formatStudentDate(session.startDate),
+                    style: const TextStyle(color: Color(0xFF6B7280)),
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Text(
-                _formatStudentDate(session.startDate),
-                style: const TextStyle(color: Color(0xFF6B7280)),
-              ),
-              const Spacer(),
-              const Icon(
-                Icons.access_time,
-                size: 14,
-                color: Color(0xFF6B7280),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                _formatStudentTimeRange(session.startDate, session.endDate),
-                style: const TextStyle(color: Color(0xFF6B7280)),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.access_time,
+                    size: 14,
+                    color: Color(0xFF6B7280),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    _formatStudentTimeRange(session.startDate, session.endDate),
+                    style: const TextStyle(color: Color(0xFF6B7280)),
+                  ),
+                ],
               ),
             ],
           ),
@@ -731,6 +756,7 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
       builder: (dialogContext) {
         final screenWidth = MediaQuery.of(dialogContext).size.width;
         final dialogWidth = screenWidth < 560 ? screenWidth - 24 : 520.0;
+        final compactDialog = dialogWidth < 380;
 
         return Dialog(
           shape:
@@ -754,13 +780,17 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          session == null
-                              ? 'Nouvelle Session de Formation'
-                              : 'Modifier la Session',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF111827),
+                        Expanded(
+                          child: Text(
+                            session == null
+                                ? 'Nouvelle Session de Formation'
+                                : 'Modifier la Session',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF111827),
+                            ),
                           ),
                         ),
                         IconButton(
@@ -789,10 +819,10 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
                     const SizedBox(height: 6),
                     _courseDropdown(selectedCourseId),
                     const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
+                    if (compactDialog)
+                      Column(
+                        children: [
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text('Type'),
@@ -812,10 +842,8 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
+                          const SizedBox(height: 10),
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text('Max Participants'),
@@ -827,14 +855,57 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Type'),
+                                const SizedBox(height: 6),
+                                DropdownButtonFormField<SessionType>(
+                                  value: selectedType.value,
+                                  items: SessionType.values
+                                      .map((item) => DropdownMenuItem(
+                                            value: item,
+                                            child: Text(item.label),
+                                          ))
+                                      .toList(),
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      selectedType.value = value;
+                                    }
+                                  },
+                                  decoration: _dialogInputDecoration(null),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Max Participants'),
+                                const SizedBox(height: 6),
+                                TextField(
+                                  controller: maxCtrl,
+                                  keyboardType: TextInputType.number,
+                                  decoration: _dialogInputDecoration('10'),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
+                    if (compactDialog)
+                      Column(
+                        children: [
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text('Début'),
@@ -845,10 +916,8 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
+                          const SizedBox(height: 10),
+                          Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               const Text('Fin'),
@@ -859,9 +928,40 @@ class TrainingSessionsPage extends GetView<TrainingSessionsController> {
                               ),
                             ],
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Début'),
+                                const SizedBox(height: 6),
+                                _dateTimeField(
+                                  value: startDate.value,
+                                  onPick: (value) => startDate.value = value,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Fin'),
+                                const SizedBox(height: 6),
+                                _dateTimeField(
+                                  value: endDate.value,
+                                  onPick: (value) => endDate.value = value,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     if (showMeeting) ...[
                       const SizedBox(height: 10),
                       const Text('Lien de réunion (si en ligne)'),

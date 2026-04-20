@@ -7,11 +7,13 @@ class PaymentsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 920;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       body: Row(
         children: [
-          const CustomSidebar(),
+          if (!isCompact) const CustomSidebar(),
           Expanded(
             child: Column(
               children: [

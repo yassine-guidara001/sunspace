@@ -37,7 +37,7 @@ class SpacesView extends StatelessWidget {
                         const SizedBox(height: 20),
                         _buildFilterBar(),
                         const SizedBox(height: 20),
-                        _buildSpacesTable(),
+                        _buildSpacesTable(isCompact),
                       ],
                     ),
                   ),
@@ -77,14 +77,16 @@ class SpacesView extends StatelessWidget {
             backgroundColor: Color(0xFFE2E8F0),
             child: Icon(Icons.person, color: Colors.blue, size: 18),
           ),
-          const SizedBox(width: 8),
-          const Text(
-            'intern',
-            style: TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.w500,
+          if (!isCompact) ...[
+            const SizedBox(width: 8),
+            const Text(
+              'intern',
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-          ),
+          ],
           const Icon(Icons.keyboard_arrow_down, color: Colors.black, size: 18),
         ],
       ),
@@ -92,42 +94,52 @@ class SpacesView extends StatelessWidget {
   }
 
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Gestion des espaces',
-              style: TextStyle(
-                color: Color(0xFF0F172A),
-                fontWeight: FontWeight.w700,
+    return LayoutBuilder(builder: (context, constraints) {
+      final isCompact = constraints.maxWidth < 760;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Gestion des espaces',
+                style: TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            SizedBox(height: 4),
-            Text(
-              'Gerez vos espaces de coworking',
-              style: TextStyle(color: Color(0xFF64748B)),
-            ),
-          ],
-        ),
-        ElevatedButton.icon(
-          onPressed: () => Get.toNamed(Routes.CREATE_SPACE),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF2563EB),
-            foregroundColor: Colors.white,
-            elevation: 0,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+              SizedBox(height: 4),
+              Text(
+                'Gerez vos espaces de coworking',
+                style: TextStyle(color: Color(0xFF64748B)),
+              ),
+            ],
+          ),
+          SizedBox(
+            width: isCompact ? constraints.maxWidth : null,
+            child: ElevatedButton.icon(
+              onPressed: () => Get.toNamed(Routes.CREATE_SPACE),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2563EB),
+                foregroundColor: Colors.white,
+                elevation: 0,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('Nouvel espace'),
             ),
           ),
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('Nouvel espace'),
-        ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
   Widget _buildFilterBar() {
@@ -138,36 +150,22 @@ class SpacesView extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              onChanged: controller.searchSpaces,
-              decoration: InputDecoration(
-                hintText: 'Rechercher...',
-                hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
-                prefixIcon: const Icon(Icons.search, size: 18),
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          SizedBox(
-            width: 200,
-            child: Obx(
-              () => DropdownButtonFormField<String>(
-                initialValue: _statusFilter.value,
-                isExpanded: true,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 760;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            SizedBox(
+              width: isCompact
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - 212),
+              child: TextField(
+                onChanged: controller.searchSpaces,
                 decoration: InputDecoration(
+                  hintText: 'Rechercher...',
+                  hintStyle: const TextStyle(color: Color(0xFF94A3B8)),
+                  prefixIcon: const Icon(Icons.search, size: 18),
                   filled: true,
                   fillColor: const Color(0xFFF8FAFC),
                   enabledBorder: OutlineInputBorder(
@@ -179,122 +177,230 @@ class SpacesView extends StatelessWidget {
                     borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
                   ),
                 ),
-                items: const [
-                  'Tous les statuts',
-                  'Disponible',
-                  'Occupé',
-                  'En maintenance',
-                ]
-                    .map((value) => DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value, overflow: TextOverflow.ellipsis),
-                        ))
-                    .toList(),
-                onChanged: (value) {
-                  if (value != null) {
-                    _statusFilter.value = value;
-                  }
-                },
               ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSpacesTable() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Obx(() {
-        if (controller.isLoading.value) {
-          return const Padding(
-            padding: EdgeInsets.all(80),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        final items = controller.spaces
-            .where((space) => _matchesStatus(space.status, _statusFilter.value))
-            .toList();
-
-        if (items.isEmpty) {
-          return const Padding(
-            padding: EdgeInsets.all(24),
-            child: Center(child: Text('Aucun espace trouve')),
-          );
-        }
-
-        return Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              decoration: const BoxDecoration(
-                border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+            SizedBox(
+              width: isCompact ? constraints.maxWidth : 200,
+              child: Obx(
+                () => DropdownButtonFormField<String>(
+                  initialValue: _statusFilter.value,
+                  isExpanded: true,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: Color(0xFFCBD5E1)),
+                    ),
+                  ),
+                  items: const [
+                    'Tous les statuts',
+                    'Disponible',
+                    'Occupé',
+                    'En maintenance',
+                  ]
+                      .map((value) => DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value, overflow: TextOverflow.ellipsis),
+                          ))
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      _statusFilter.value = value;
+                    }
+                  },
+                ),
               ),
-              child: const Row(
-                children: [
-                  Expanded(
-                      flex: 3,
-                      child: Text('ESPACE',
-                          style: TextStyle(
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w700))),
-                  Expanded(
-                      flex: 2,
-                      child: Text('TYPE',
-                          style: TextStyle(
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w700))),
-                  Expanded(
-                      flex: 2,
-                      child: Text('LOCALISATION',
-                          style: TextStyle(
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w700))),
-                  Expanded(
-                      child: Text('CAPACITE',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w700))),
-                  Expanded(
-                      child: Text('TARIF/H',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w700))),
-                  Expanded(
-                      child: Text('STATUT',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                              color: Color(0xFF64748B),
-                              fontWeight: FontWeight.w700))),
-                  Expanded(
-                      child: Align(
-                          alignment: Alignment.centerRight,
-                          child: Text('ACTIONS',
-                              style: TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontWeight: FontWeight.w700)))),
-                ],
-              ),
-            ),
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: items.length,
-              separatorBuilder: (_, __) =>
-                  const Divider(height: 1, color: Color(0xFFE2E8F0)),
-              itemBuilder: (_, index) => _buildSpaceRow(items[index]),
             ),
           ],
         );
       }),
+    );
+  }
+
+  Widget _buildSpacesTable(bool isCompactPage) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final effectiveWidth = constraints.maxWidth.isFinite
+          ? constraints.maxWidth
+          : MediaQuery.sizeOf(context).width;
+      final isCompactTable = isCompactPage || effectiveWidth < 1200;
+
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Obx(() {
+          if (controller.isLoading.value) {
+            return const Padding(
+              padding: EdgeInsets.all(80),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final items = controller.spaces
+              .where(
+                  (space) => _matchesStatus(space.status, _statusFilter.value))
+              .toList();
+
+          if (items.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.all(24),
+              child: Center(child: Text('Aucun espace trouve')),
+            );
+          }
+
+          if (isCompactTable) {
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (_, index) => Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: _buildMobileSpaceCard(items[index]),
+              ),
+            );
+          }
+
+          return Column(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
+                ),
+                child: const Row(
+                  children: [
+                    Expanded(
+                        flex: 3,
+                        child: Text('ESPACE',
+                            style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w700))),
+                    Expanded(
+                        flex: 2,
+                        child: Text('TYPE',
+                            style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w700))),
+                    Expanded(
+                        flex: 2,
+                        child: Text('LOCALISATION',
+                            style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w700))),
+                    Expanded(
+                        child: Text('CAPACITE',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w700))),
+                    Expanded(
+                        child: Text('TARIF/H',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w700))),
+                    Expanded(
+                        child: Text('STATUT',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                                color: Color(0xFF64748B),
+                                fontWeight: FontWeight.w700))),
+                    Expanded(
+                        child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Text('ACTIONS',
+                                style: TextStyle(
+                                    color: Color(0xFF64748B),
+                                    fontWeight: FontWeight.w700)))),
+                  ],
+                ),
+              ),
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: items.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                itemBuilder: (_, index) => _buildSpaceRow(items[index]),
+              ),
+            ],
+          );
+        }),
+      );
+    });
+  }
+
+  Widget _buildMobileSpaceCard(Space space) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            space.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF0F172A),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            space.location,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Color(0xFF64748B)),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              Text('Type: ${space.type}'),
+              Text('Capacité: ${space.capacity}'),
+              Text('Tarif/h: ${space.hourlyRate.toStringAsFixed(0)}'),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _buildStatusBadge(space.status),
+              const Spacer(),
+              IconButton(
+                tooltip: 'Modifier',
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                onPressed: () =>
+                    Get.toNamed(Routes.CREATE_SPACE, arguments: space),
+              ),
+              IconButton(
+                tooltip: 'Supprimer',
+                icon: const Icon(
+                  Icons.delete_outline,
+                  size: 18,
+                  color: Colors.red,
+                ),
+                onPressed: () => controller.deleteSpace(space.id),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

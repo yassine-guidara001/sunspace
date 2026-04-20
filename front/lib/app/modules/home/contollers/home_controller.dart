@@ -35,6 +35,7 @@ class HomeController extends GetxController {
   static const String _baseApiUrl = 'http://localhost:3001/api';
 
   final selectedMenu = 0.obs; // dashboard selected par defaut
+  final currentRoute = Routes.HOME.obs;
   final isSidebarCollapsed = false.obs;
   final currentUsername = 'Utilisateur'.obs;
   final currentEmail = ''.obs;
@@ -60,6 +61,7 @@ class HomeController extends GetxController {
 
   void changeMenu(int index, String route) {
     selectedMenu.value = index;
+    currentRoute.value = route;
 
     if (_profileSyncMenuIndexes.contains(index)) {
       _syncCurrentUserForSidebarSection();
@@ -97,6 +99,10 @@ class HomeController extends GetxController {
     if (Get.currentRoute != route) {
       Get.toNamed(route);
     }
+  }
+
+  void setCurrentRoute(String route) {
+    currentRoute.value = route;
   }
 
   Future<void> openSettings() async {

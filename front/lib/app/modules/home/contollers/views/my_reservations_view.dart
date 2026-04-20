@@ -173,8 +173,10 @@ class _MyReservationsViewState extends State<MyReservationsView> {
     return Scaffold(
       backgroundColor: const Color(0xFFEAF0F8),
       body: LayoutBuilder(builder: (ctx, constraints) {
+        final isCompact = constraints.maxWidth < 1080;
+
         return Row(children: [
-          if (constraints.maxWidth >= 1080) const CustomSidebar(),
+          if (!isCompact) const CustomSidebar(),
           Expanded(
             child: Column(children: [
               const DashboardTopBar(),
@@ -208,6 +210,7 @@ class _MyReservationsViewState extends State<MyReservationsView> {
   Widget _buildHero(BuildContext context) {
     final w = MediaQuery.of(context).size.width;
     final compact = w < 1200;
+    final veryCompact = w < 760;
 
     return Obx(() => Container(
           width: double.infinity,
@@ -267,37 +270,46 @@ class _MyReservationsViewState extends State<MyReservationsView> {
                           color: Color(0xFF64748B), fontSize: 14, height: 1.4),
                     ),
                     const SizedBox(height: 16),
-                    Row(children: [
-                      OutlinedButton.icon(
-                        onPressed: _load,
-                        icon: const Icon(Icons.refresh, size: 16),
-                        label: const Text('Actualiser'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF334155),
-                          side: const BorderSide(color: Color(0xFFC8D9F3)),
-                          backgroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        SizedBox(
+                          width: veryCompact ? double.infinity : null,
+                          child: OutlinedButton.icon(
+                            onPressed: _load,
+                            icon: const Icon(Icons.refresh, size: 16),
+                            label: const Text('Actualiser'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF334155),
+                              side: const BorderSide(color: Color(0xFFC8D9F3)),
+                              backgroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton.icon(
-                        onPressed: () => Get.toNamed(Routes.PLAN),
-                        icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Nouvelle Réservation →'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0B6BFF),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
+                        SizedBox(
+                          width: veryCompact ? double.infinity : null,
+                          child: ElevatedButton.icon(
+                            onPressed: () => Get.toNamed(Routes.PLAN),
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Nouvelle Réservation →'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0B6BFF),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
+                            ),
+                          ),
                         ),
-                      ),
-                    ]),
+                      ],
+                    ),
                     const SizedBox(height: 20),
                     // Stats
                     Wrap(spacing: 12, runSpacing: 12, children: [
@@ -348,8 +360,10 @@ class _MyReservationsViewState extends State<MyReservationsView> {
     Color iconColor = const Color(0xFF64748B),
     Color valueColor = const Color(0xFF0F172A),
   }) {
+    final narrow = MediaQuery.of(context).size.width < 460;
+
     return Container(
-      width: 180,
+      width: narrow ? double.infinity : 180,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: cardColor,
@@ -377,25 +391,26 @@ class _MyReservationsViewState extends State<MyReservationsView> {
   }
 
   Widget _buildSectionHeader() {
-    return Row(children: [
-      const Row(children: [
-        SizedBox(
-            width: 4,
-            height: 28,
-            child: DecoratedBox(
-                decoration: BoxDecoration(
-                    color: Color(0xFF0B6BFF),
-                    borderRadius: BorderRadius.all(Radius.circular(4))))),
-        SizedBox(width: 10),
-        Text('MES RÉSERVATIONS',
-            style: TextStyle(
-                color: Color(0xFF0F172A),
-                fontSize: 22,
-                fontWeight: FontWeight.w800)),
-      ]),
-      const SizedBox(width: 24),
-      Expanded(
-        child: TextField(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compactHeader = constraints.maxWidth < 760;
+        final titleBlock = const Row(children: [
+          SizedBox(
+              width: 4,
+              height: 28,
+              child: DecoratedBox(
+                  decoration: BoxDecoration(
+                      color: Color(0xFF0B6BFF),
+                      borderRadius: BorderRadius.all(Radius.circular(4))))),
+          SizedBox(width: 10),
+          Text('MES RÉSERVATIONS',
+              style: TextStyle(
+                  color: Color(0xFF0F172A),
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800)),
+        ]);
+
+        final searchField = TextField(
           onChanged: (v) {
             _search = v;
             _applyFilter();
@@ -415,9 +430,28 @@ class _MyReservationsViewState extends State<MyReservationsView> {
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: Color(0xFFDEE8F7))),
           ),
-        ),
-      ),
-    ]);
+        );
+
+        if (compactHeader) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              titleBlock,
+              const SizedBox(height: 12),
+              SizedBox(width: double.infinity, child: searchField),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            titleBlock,
+            const SizedBox(width: 24),
+            Expanded(child: searchField),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildList() {
@@ -451,10 +485,12 @@ class _MyReservationsViewState extends State<MyReservationsView> {
   }
 
   Widget _buildCard(Map<String, dynamic> r) {
+    final compactCard = MediaQuery.of(context).size.width < 760;
     final status = _statusOf(r);
     final isConf = status.toLowerCase().contains('confirm');
     final isPend = status.toLowerCase().contains('attente');
     final isCancel = status.toLowerCase().contains('annul');
+
     final statusColor = isConf
         ? const Color(0xFF059669)
         : isPend
@@ -488,143 +524,336 @@ class _MyReservationsViewState extends State<MyReservationsView> {
         border: Border.all(color: const Color(0xFFE8F0F8)),
         boxShadow: [
           BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 3))
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          )
         ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ── Colonne gauche ────────────────────────────────────────
-            Expanded(
-              child: Column(
+        child: compactCard
+            ? Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Statut + localisation
-                  Row(children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                          color: statusBg,
-                          borderRadius: BorderRadius.circular(6)),
-                      child: Text(statusLabel,
-                          style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: statusColor)),
-                    ),
-                    if (loc.isNotEmpty) ...[
-                      const SizedBox(width: 10),
-                      const Icon(Icons.location_on_outlined,
-                          size: 13, color: Color(0xFF64748B)),
-                      const SizedBox(width: 3),
-                      Text(loc,
-                          style: const TextStyle(
-                              fontSize: 12, color: Color(0xFF64748B))),
-                    ],
-                  ]),
-                  const SizedBox(height: 8),
-                  // Nom espace
-                  Text(name,
-                      style: const TextStyle(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: statusBg,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              statusLabel,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: statusColor,
+                              ),
+                            ),
+                          ),
+                          if (loc.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.location_on_outlined,
+                                    size: 13, color: Color(0xFF64748B)),
+                                const SizedBox(width: 3),
+                                Text(
+                                  loc,
+                                  style: const TextStyle(
+                                      fontSize: 12, color: Color(0xFF64748B)),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        name,
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF0F172A))),
-                  const SizedBox(height: 4),
-                  // Sous-titre
-                  Text(
-                    [
-                      if (loc.isNotEmpty) 'Espace de Travail',
-                      if (floor.isNotEmpty) 'Étage $floor',
-                    ].join(' • '),
-                    style:
-                        const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        [
+                          if (loc.isNotEmpty) 'Espace de Travail',
+                          if (floor.isNotEmpty) 'Étage $floor',
+                        ].join(' • '),
+                        style: const TextStyle(
+                            fontSize: 12, color: Color(0xFF94A3B8)),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 18,
+                        runSpacing: 8,
+                        children: [
+                          if (date.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.calendar_today_outlined,
+                                    size: 13, color: Color(0xFF0B6BFF)),
+                                const SizedBox(width: 5),
+                                Text(
+                                  date,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF374151),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          if (timeRange.isNotEmpty)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.access_time_outlined,
+                                    size: 13, color: Color(0xFF0B6BFF)),
+                                const SizedBox(width: 5),
+                                Text(
+                                  timeRange,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF374151),
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 14),
-                  // Date + Horaires
-                  Row(children: [
-                    if (date.isNotEmpty) ...[
-                      const Icon(Icons.calendar_today_outlined,
-                          size: 13, color: Color(0xFF0B6BFF)),
-                      const SizedBox(width: 5),
-                      Text(date,
-                          style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF374151))),
-                    ],
-                    if (timeRange.isNotEmpty) ...[
-                      const SizedBox(width: 18),
-                      const Icon(Icons.access_time_outlined,
-                          size: 13, color: Color(0xFF0B6BFF)),
-                      const SizedBox(width: 5),
-                      Text(timeRange,
-                          style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF374151))),
-                    ],
-                  ]),
-                ],
-              ),
-            ),
-            const SizedBox(width: 16),
-            // ── Colonne droite ────────────────────────────────────────
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                const Text('MONTANT TOTAL',
-                    style: TextStyle(
-                        fontSize: 10,
-                        color: Color(0xFF94A3B8),
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.5)),
-                const SizedBox(height: 4),
-                RichText(
-                  text: TextSpan(
+                  Row(
                     children: [
-                      TextSpan(
-                          text: amount.toStringAsFixed(0),
-                          style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: Color(0xFF0F172A))),
-                      const TextSpan(
-                          text: ' DT',
-                          style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: Color(0xFF64748B))),
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: amount.toStringAsFixed(0),
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const TextSpan(
+                              text: ' DT',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      if (!isConf && !isCancel && docId.isNotEmpty)
+                        GestureDetector(
+                          onTap: () => _cancel(r),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.warning_amber_rounded,
+                                  size: 14, color: Color(0xFFDC2626)),
+                              SizedBox(width: 4),
+                              Text(
+                                'ANNULER',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFDC2626),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 12),
-                // Bouton Annuler (si pas déjà annulé/confirmé)
-                if (!isConf && !isCancel && docId.isNotEmpty)
-                  GestureDetector(
-                    onTap: () => _cancel(r),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.warning_amber_rounded,
-                            size: 14, color: Color(0xFFDC2626)),
-                        SizedBox(width: 4),
-                        Text('ANNULER',
-                            style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFFDC2626))),
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 8,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: statusBg,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                statusLabel,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                  color: statusColor,
+                                ),
+                              ),
+                            ),
+                            if (loc.isNotEmpty)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.location_on_outlined,
+                                      size: 13, color: Color(0xFF64748B)),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    loc,
+                                    style: const TextStyle(
+                                        fontSize: 12, color: Color(0xFF64748B)),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFF0F172A),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          [
+                            if (loc.isNotEmpty) 'Espace de Travail',
+                            if (floor.isNotEmpty) 'Étage $floor',
+                          ].join(' • '),
+                          style: const TextStyle(
+                              fontSize: 12, color: Color(0xFF94A3B8)),
+                        ),
+                        const SizedBox(height: 14),
+                        Wrap(
+                          spacing: 18,
+                          runSpacing: 8,
+                          children: [
+                            if (date.isNotEmpty)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.calendar_today_outlined,
+                                      size: 13, color: Color(0xFF0B6BFF)),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    date,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF374151),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            if (timeRange.isNotEmpty)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.access_time_outlined,
+                                      size: 13, color: Color(0xFF0B6BFF)),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    timeRange,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFF374151),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
-              ],
-            ),
-          ],
-        ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Text(
+                        'MONTANT TOTAL',
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      RichText(
+                        text: TextSpan(
+                          children: [
+                            TextSpan(
+                              text: amount.toStringAsFixed(0),
+                              style: const TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF0F172A),
+                              ),
+                            ),
+                            const TextSpan(
+                              text: ' DT',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF64748B),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (!isConf && !isCancel && docId.isNotEmpty)
+                        GestureDetector(
+                          onTap: () => _cancel(r),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.warning_amber_rounded,
+                                  size: 14, color: Color(0xFFDC2626)),
+                              SizedBox(width: 4),
+                              Text(
+                                'ANNULER',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFDC2626),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
       ),
     );
   }

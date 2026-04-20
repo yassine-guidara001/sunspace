@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/home_controller.dart';
 import 'package:get/get.dart';
@@ -8,18 +10,20 @@ class FormationsView extends GetView<HomeController> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 920;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
       body: Row(
         children: [
-          const CustomSidebar(),
+          if (!isCompact) const CustomSidebar(),
           Expanded(
             child: Column(
               children: [
-                _buildTopBar(),
+                _buildTopBar(context, isCompact),
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(24),
+                    padding: EdgeInsets.all(isCompact ? 16 : 24),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -40,34 +44,44 @@ class FormationsView extends GetView<HomeController> {
     );
   }
 
-  Widget _buildTopBar() {
+  Widget _buildTopBar(BuildContext context, bool isCompact) {
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+      height: isCompact ? 60 : 70,
+      padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 24),
       decoration: const BoxDecoration(
         color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE2E8F0))),
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 300,
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Rechercher...',
-                hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
-                isDense: true,
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
+          if (isCompact) ...[
+            IconButton(
+              tooltip: 'Menu',
+              onPressed: () => CustomSidebar.openDrawerMenu(context),
+              icon: const Icon(Icons.menu, color: Color(0xFF475569)),
+            ),
+          ] else
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: SizedBox(
+                width: double.infinity,
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher...',
+                    hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                    isDense: true,
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
           const Spacer(),
           IconButton(
             onPressed: () {},
@@ -79,64 +93,75 @@ class FormationsView extends GetView<HomeController> {
             backgroundColor: Color(0xFFE2E8F0),
             child: Icon(Icons.person, size: 16, color: Colors.blue),
           ),
-          const SizedBox(width: 8),
-          const Text(
-            'intern',
-            style: TextStyle(fontWeight: FontWeight.w500),
-          ),
+          if (!isCompact) ...[
+            const SizedBox(width: 8),
+            const Text(
+              'intern',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.menu_book_outlined,
-                    color: Color(0xFF2563EB), size: 28),
-                SizedBox(width: 10),
-                Text(
-                  'Mes Formations',
-                  style: TextStyle(
-                    height: 1,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+    return LayoutBuilder(builder: (context, constraints) {
+      final isCompact = constraints.maxWidth < 760;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.menu_book_outlined,
+                      color: Color(0xFF2563EB), size: 28),
+                  SizedBox(width: 10),
+                  Text(
+                    'Mes Formations',
+                    style: TextStyle(
+                      height: 1,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Gérez vos cours, modules et leçons',
-              style: TextStyle(color: Color(0xFF6B7280), ),
-            ),
-          ],
-        ),
-        SizedBox(
-          height: 42,
-          child: ElevatedButton.icon(
-            onPressed: () => _showCreateCourseDialog(context),
-            icon: const Icon(Icons.add, size: 18, color: Colors.white),
-            label: const Text('Nouveau Cours'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0066D9),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                ],
               ),
-              elevation: 0,
+              SizedBox(height: 8),
+              Text(
+                'Gérez vos cours, modules et leçons',
+                style: TextStyle(
+                  color: Color(0xFF6B7280),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(
+            width: isCompact ? constraints.maxWidth : null,
+            height: 42,
+            child: ElevatedButton.icon(
+              onPressed: () => _showCreateCourseDialog(context),
+              icon: const Icon(Icons.add, size: 18, color: Colors.white),
+              label: const Text('Nouveau Cours'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0066D9),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
+              ),
             ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
   void _showCreateCourseDialog(BuildContext context) {
@@ -156,7 +181,7 @@ class FormationsView extends GetView<HomeController> {
           child: StatefulBuilder(
             builder: (context, setState) {
               return Container(
-                width: 430,
+                width: math.min(430, MediaQuery.of(context).size.width - 24),
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -183,7 +208,9 @@ class FormationsView extends GetView<HomeController> {
                     const SizedBox(height: 6),
                     const Text(
                       'Remplissez les détails ci-dessous pour créer un nouveau cours.',
-                      style: TextStyle(color: Color(0xFF6B7280), ),
+                      style: TextStyle(
+                        color: Color(0xFF6B7280),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     const Text(
@@ -282,26 +309,23 @@ class FormationsView extends GetView<HomeController> {
                           color: Color(0xFF111827)),
                     ),
                     const SizedBox(height: 6),
-                    SizedBox(
-                      width: 155,
-                      child: DropdownButtonFormField<String>(
-                        value: selectedStatus,
-                        isDense: true,
-                        icon: const Icon(Icons.keyboard_arrow_down,
-                            size: 16, color: Color(0xFF9CA3AF)),
-                        items: const [
-                          DropdownMenuItem(
-                              value: 'Brouillon', child: Text('Brouillon')),
-                          DropdownMenuItem(
-                              value: 'Publié', child: Text('Publié')),
-                        ],
-                        onChanged: (value) {
-                          if (value != null) {
-                            setState(() => selectedStatus = value);
-                          }
-                        },
-                        decoration: _dialogInputDecoration(null),
-                      ),
+                    DropdownButtonFormField<String>(
+                      value: selectedStatus,
+                      isDense: true,
+                      icon: const Icon(Icons.keyboard_arrow_down,
+                          size: 16, color: Color(0xFF9CA3AF)),
+                      items: const [
+                        DropdownMenuItem(
+                            value: 'Brouillon', child: Text('Brouillon')),
+                        DropdownMenuItem(
+                            value: 'Publié', child: Text('Publié')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setState(() => selectedStatus = value);
+                        }
+                      },
+                      decoration: _dialogInputDecoration(null),
                     ),
                     const SizedBox(height: 14),
                     Align(
@@ -341,7 +365,9 @@ class FormationsView extends GetView<HomeController> {
   InputDecoration _dialogInputDecoration(String? hintText) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: const TextStyle(color: Color(0xFF9CA3AF), ),
+      hintStyle: const TextStyle(
+        color: Color(0xFF9CA3AF),
+      ),
       filled: true,
       fillColor: const Color(0xFFF8FAFC),
       isDense: true,
@@ -372,7 +398,9 @@ class FormationsView extends GetView<HomeController> {
       child: TextField(
         decoration: InputDecoration(
           hintText: 'Rechercher un cours...',
-          hintStyle: const TextStyle(color: Color(0xFF9CA3AF), ),
+          hintStyle: const TextStyle(
+            color: Color(0xFF9CA3AF),
+          ),
           prefixIcon: const Icon(Icons.search, size: 18, color: Colors.grey),
           isDense: true,
           filled: true,
@@ -420,7 +448,9 @@ class FormationsView extends GetView<HomeController> {
             padding: EdgeInsets.symmetric(vertical: 28),
             child: Text(
               'Aucun cours trouvé',
-              style: TextStyle(color: Color(0xFF64748B), ),
+              style: TextStyle(
+                color: Color(0xFF64748B),
+              ),
             ),
           ),
         ],
@@ -440,7 +470,7 @@ class _HeaderCell extends StatelessWidget {
       style: const TextStyle(
         fontWeight: FontWeight.w700,
         color: Color(0xFF0F172A),
-        ),
+      ),
     );
   }
 }

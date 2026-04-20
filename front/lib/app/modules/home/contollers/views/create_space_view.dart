@@ -33,7 +33,7 @@ class CreateSpaceView extends StatelessWidget {
       backgroundColor: const Color(0xFFF1F5F9),
       body: Row(
         children: [
-          CustomSidebar(),
+          if (!isCompact) CustomSidebar(),
           Expanded(
             child: Column(
               children: [

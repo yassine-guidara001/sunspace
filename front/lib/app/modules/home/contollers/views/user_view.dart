@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_getx_app/app/data/models/user_model.dart';
@@ -15,7 +17,7 @@ class UserView extends StatelessWidget {
       backgroundColor: const Color(0xFFF1F5F9),
       body: Row(
         children: [
-          const CustomSidebar(),
+          if (!isCompact) const CustomSidebar(),
           Expanded(
             child: Column(
               children: [
@@ -88,43 +90,55 @@ class UserView extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.people_outline, size: 28, color: Colors.blue),
-                SizedBox(width: 12),
-                Text("Gestion des utilisateurs",
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-              ],
-            ),
-            SizedBox(height: 4),
-            Text("Gérez les utilisateurs et leurs permissions",
-                style: TextStyle(
-                  color: Colors.grey,
-                )),
-          ],
-        ),
-        ElevatedButton.icon(
-          onPressed: () => _showUserFormDialog(context),
-          icon: const Icon(Icons.add, size: 18, color: Colors.white),
-          label: const Text("Nouvel utilisateur"),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF007BFF),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            elevation: 0,
+    return LayoutBuilder(builder: (context, constraints) {
+      final isCompact = constraints.maxWidth < 720;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.people_outline, size: 28, color: Colors.blue),
+                  SizedBox(width: 12),
+                  Text("Gestion des utilisateurs",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E293B))),
+                ],
+              ),
+              SizedBox(height: 4),
+              Text("Gérez les utilisateurs et leurs permissions",
+                  style: TextStyle(
+                    color: Colors.grey,
+                  )),
+            ],
           ),
-        ),
-      ],
-    );
+          SizedBox(
+            width: isCompact ? constraints.maxWidth : null,
+            child: ElevatedButton.icon(
+              onPressed: () => _showUserFormDialog(context),
+              icon: const Icon(Icons.add, size: 18, color: Colors.white),
+              label: const Text("Nouvel utilisateur"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF007BFF),
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ],
+      );
+    });
   }
 
   Widget _buildSearchBar() {
@@ -209,6 +223,8 @@ class UserView extends StatelessWidget {
                   children: [
                     Text(
                       user.username,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF1E293B),
@@ -217,6 +233,8 @@ class UserView extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       user.email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: Color(0xFF475569)),
                     ),
                     const SizedBox(height: 8),
@@ -316,6 +334,8 @@ class UserView extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(user.username,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                     )),
@@ -342,6 +362,8 @@ class UserView extends StatelessWidget {
                 const Icon(Icons.mail_outline, size: 16, color: Colors.grey),
                 const SizedBox(width: 8),
                 Text(user.email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Color(0xFF475569))),
               ],
             ),
@@ -482,7 +504,7 @@ class UserView extends StatelessWidget {
       Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(
-          width: 500,
+          width: math.min(500, MediaQuery.of(context).size.width - 24),
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,

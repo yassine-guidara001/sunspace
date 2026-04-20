@@ -10,11 +10,13 @@ class SessionsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    final isCompact = MediaQuery.of(context).size.width < 920;
+
+    return Scaffold(
       backgroundColor: _pageBg,
       body: Row(
         children: [
-          CustomSidebar(),
+          if (!isCompact) const CustomSidebar(),
           Expanded(
             child: Column(
               children: [

@@ -183,7 +183,6 @@ class _AssociationsViewState extends State<AssociationsView> {
       uri,
       mode: LaunchMode.externalApplication,
     );
-
     if (!launched) {
       Get.snackbar(
         'Associations',
@@ -197,93 +196,159 @@ class _AssociationsViewState extends State<AssociationsView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEAF0F8),
-      body: Row(
-        children: [
-          const CustomSidebar(),
-          Expanded(
-            child: Column(
-              children: [
-                const DashboardTopBar(),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 1080;
+
+          return Row(
+            children: [
+              if (!isCompact) const CustomSidebar(),
+              Expanded(
+                child: Column(
+                  children: [
+                    const DashboardTopBar(),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(18, 18, 18, 24),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Associations',
-                                    style: TextStyle(
-                                      fontSize: 36,
-                                      height: 1.0,
-                                      fontWeight: FontWeight.w800,
-                                      color: Color(0xFF0F172A),
+                            LayoutBuilder(
+                              builder: (context, headerConstraints) {
+                                final compactHeader =
+                                    headerConstraints.maxWidth < 760;
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Associations',
+                                      style: TextStyle(
+                                        fontSize: compactHeader ? 28 : 36,
+                                        height: 1.0,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFF0F172A),
+                                      ),
                                     ),
-                                  ),
-                                  SizedBox(height: 6),
-                                  Text(
-                                    'Gerez les associations, leurs administrateurs et membres.',
-                                    style: TextStyle(
-                                      color: Color(0xFF64748B),
-                                      fontWeight: FontWeight.w500,
+                                    const SizedBox(height: 6),
+                                    const Text(
+                                      'Gerez les associations, leurs administrateurs et membres.',
+                                      style: TextStyle(
+                                        color: Color(0xFF64748B),
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: compactHeader
+                                          ? double.infinity
+                                          : null,
+                                      child: Obx(
+                                        () => ElevatedButton.icon(
+                                          onPressed: controller.isMutating.value
+                                              ? null
+                                              : _openCreateDialog,
+                                          icon: const Icon(Icons.add, size: 16),
+                                          label: const Text(
+                                              'Nouvelle Association'),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color(0xFF1664FF),
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 14, vertical: 12),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
-                            const SizedBox(width: 16),
-                            Obx(
-                              () => ElevatedButton.icon(
-                                onPressed: controller.isMutating.value
-                                    ? null
-                                    : _openCreateDialog,
-                                icon: const Icon(Icons.add, size: 16),
-                                label: const Text('Nouvelle Association'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1664FF),
-                                  foregroundColor: Colors.white,
-                                  elevation: 0,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 12),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                ),
+                            const SizedBox(height: 16),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                                border:
+                                    Border.all(color: const Color(0xFFE2E8F0)),
                               ),
+                              child: isCompact
+                                  ? Obx(() => _buildCompactAssociationList())
+                                  : Column(
+                                      children: [
+                                        const _AssociationsTableHeader(),
+                                        const Divider(
+                                          height: 1,
+                                          color: Color(0xFFE2E8F0),
+                                        ),
+                                        Obx(() => _buildTableBody()),
+                                      ],
+                                    ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                          ),
-                          child: Column(
-                            children: [
-                              const _AssociationsTableHeader(),
-                              const Divider(
-                                  height: 1, color: Color(0xFFE2E8F0)),
-                              Obx(() => _buildTableBody()),
-                            ],
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
+    );
+  }
+
+  Widget _buildCompactAssociationList() {
+    if (controller.isLoading.value) {
+      return const SizedBox(
+        height: 190,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (controller.errorMessage.value.isNotEmpty) {
+      return SizedBox(
+        height: 190,
+        child: Center(
+          child: Text(
+            controller.errorMessage.value,
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    if (controller.associations.isEmpty) {
+      return const SizedBox(
+        height: 190,
+        child: Center(child: Text('Tableau vide pour le moment')),
+      );
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: controller.associations.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final row = controller.associations[index];
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: _AssociationCard(
+            data: row,
+            onEdit: _openEditDialog,
+            onDelete: _confirmDelete,
+            onOpenWebsite: _openAssociationWebsite,
+            onMembers: _openMembersDialog,
+          ),
+        );
+      },
     );
   }
 
@@ -588,6 +653,122 @@ class _AssociationRow extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AssociationCard extends StatelessWidget {
+  const _AssociationCard({
+    required this.data,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onOpenWebsite,
+    required this.onMembers,
+  });
+
+  final AssociationModel data;
+  final ValueChanged<AssociationModel> onEdit;
+  final ValueChanged<AssociationModel> onDelete;
+  final ValueChanged<AssociationModel> onOpenWebsite;
+  final ValueChanged<AssociationModel> onMembers;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            data.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF0F172A),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (data.email.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              data.email,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFF94A3B8),
+                fontSize: 12,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Text('Admin: ${data.adminName}'),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              Text(data.budgetLabel),
+              _StatusPill(verified: data.verified),
+              Text('${data.membersCount} membres'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              TextButton(
+                onPressed: () => onMembers(data),
+                child: const Text('Membres'),
+              ),
+              TextButton(
+                onPressed: () => onOpenWebsite(data),
+                child: const Text('Site'),
+              ),
+              TextButton(
+                onPressed: () => onEdit(data),
+                child: const Text('Modifier'),
+              ),
+              TextButton(
+                onPressed: () => onDelete(data),
+                child: const Text('Supprimer'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.verified});
+
+  final bool verified;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = verified ? const Color(0xFF16A34A) : const Color(0xFFE2E8F0);
+    final textColor = verified ? Colors.white : const Color(0xFF334155);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(30),
+      ),
+      child: Text(
+        verified ? 'Verifiee' : 'En attente',
+        style: TextStyle(
+          color: textColor,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

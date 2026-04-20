@@ -404,28 +404,48 @@ class _ProfessionalSubscriptionsPageState
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: const Color(0xFFA3C8FF)),
         ),
-        child: Row(
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: const Color(0xFFEAF2FF),
-                borderRadius: BorderRadius.circular(9),
-              ),
-              child: Icon(planIcon, color: accent, size: 17),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 700;
+
+            Widget cancelButton() {
+              return OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _activePlanName = null;
+                    _activePlanAmount = null;
+                    _activePlanPeriodLabel = null;
+                    _activePlanIcon = null;
+                    _activePlanAccent = null;
+                  });
+                  _showTopNotice(title: 'Abonnement annule');
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFFEF4444),
+                  side: const BorderSide(color: Color(0xFFFCA5A5)),
+                  backgroundColor: Colors.white,
+                  minimumSize: const Size(94, 38),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                child: const Text(
+                  'Annuler',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              );
+            }
+
+            Widget bannerText() {
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   RichText(
                     text: TextSpan(
-                      style: const TextStyle(
-                        color: Color(0xFF0F172A),
+                      style: TextStyle(
+                        color: const Color(0xFF0F172A),
                         fontWeight: FontWeight.w700,
-                        fontSize: 24,
+                        fontSize: compact ? 18 : 24,
                       ),
                       children: [
                         const TextSpan(text: 'Abonnement actif : '),
@@ -442,42 +462,60 @@ class _ProfessionalSubscriptionsPageState
                   const SizedBox(height: 2),
                   Text(
                     '$amount DT / $period - Renouvellement automatique',
-                    style: const TextStyle(
-                      color: Color(0xFF64748B),
+                    style: TextStyle(
+                      color: const Color(0xFF64748B),
                       fontWeight: FontWeight.w600,
-                      fontSize: 16,
+                      fontSize: compact ? 13 : 16,
                     ),
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            OutlinedButton(
-              onPressed: () {
-                setState(() {
-                  _activePlanName = null;
-                  _activePlanAmount = null;
-                  _activePlanPeriodLabel = null;
-                  _activePlanIcon = null;
-                  _activePlanAccent = null;
-                });
-                _showTopNotice(title: 'Abonnement annule');
-              },
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFEF4444),
-                side: const BorderSide(color: Color(0xFFFCA5A5)),
-                backgroundColor: Colors.white,
-                minimumSize: const Size(94, 38),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
+              );
+            }
+
+            if (compact) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEAF2FF),
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Icon(planIcon, color: accent, size: 17),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(child: bannerText()),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(width: double.infinity, child: cancelButton()),
+                ],
+              );
+            }
+
+            return Row(
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAF2FF),
+                    borderRadius: BorderRadius.circular(9),
+                  ),
+                  child: Icon(planIcon, color: accent, size: 17),
                 ),
-              ),
-              child: const Text(
-                'Annuler',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ),
-          ],
+                const SizedBox(width: 10),
+                Expanded(child: bannerText()),
+                const SizedBox(width: 10),
+                cancelButton(),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -486,55 +524,59 @@ class _ProfessionalSubscriptionsPageState
   Widget _buildHero() {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 820),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF2FF),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.auto_awesome, size: 12, color: Color(0xFF2563EB)),
-                SizedBox(width: 6),
-                Text(
-                  'Abonnements Professionnels',
-                  style: TextStyle(
-                    color: Color(0xFF2563EB),
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
+      child: LayoutBuilder(builder: (context, constraints) {
+        final compact = constraints.maxWidth < 560;
+
+        return Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAF2FF),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.auto_awesome, size: 12, color: Color(0xFF2563EB)),
+                  SizedBox(width: 6),
+                  Text(
+                    'Abonnements Professionnels',
+                    style: TextStyle(
+                      color: Color(0xFF2563EB),
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Choisissez votre espace de travail',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF0F172A),
-              fontWeight: FontWeight.w800,
-              fontSize: 48,
-              height: 1.08,
+            const SizedBox(height: 10),
+            Text(
+              'Choisissez votre espace de travail',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: const Color(0xFF0F172A),
+                fontWeight: FontWeight.w800,
+                fontSize: compact ? 34 : 48,
+                height: 1.08,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Des formules flexibles adaptees a votre activite. Changez ou annulez a tout\nmoment.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF64748B),
-              fontSize: 13,
-              height: 1.45,
+            const SizedBox(height: 10),
+            const Text(
+              'Des formules flexibles adaptees a votre activite. Changez ou annulez a tout moment.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF64748B),
+                fontSize: 13,
+                height: 1.45,
+              ),
             ),
-          ),
-          const SizedBox(height: 10),
-          _buildBillingToggle(),
-        ],
-      ),
+            const SizedBox(height: 10),
+            _buildBillingToggle(),
+          ],
+        );
+      }),
     );
   }
 
@@ -674,175 +716,187 @@ class _PlanCard extends StatelessWidget {
             ? Colors.white
             : const Color(0xFF111827);
 
-    return Container(
-      constraints: BoxConstraints.tightFor(height: cardHeight),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: borderColor, width: highlighted ? 1.4 : 1),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0A0F172A),
-            blurRadius: 10,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
-            decoration: BoxDecoration(
-              color: headerTint,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compactCard = constraints.maxWidth < 320;
+        return Container(
+          constraints: BoxConstraints.tightFor(height: cardHeight),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border:
+                Border.all(color: borderColor, width: highlighted ? 1.4 : 1),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A0F172A),
+                blurRadius: 10,
+                offset: Offset(0, 2),
               ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 24,
-                      height: 24,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
-                      ),
-                      child: Icon(icon, color: iconColor, size: 16),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        name,
-                        style: const TextStyle(
-                          color: Color(0xFF0F172A),
-                          fontWeight: FontWeight.w800,
-                          fontSize: 30,
-                          height: 0.95,
-                        ),
-                      ),
-                    ),
-                    if (effectiveBadgeText != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: effectiveBadgeColor,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          effectiveBadgeText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 9.5,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Color(0xFF6B7280),
-                    fontSize: 10.5,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      '$displayedPrice',
-                      style: const TextStyle(
-                        color: Color(0xFF0F172A),
-                        fontWeight: FontWeight.w900,
-                        fontSize: 40,
-                        height: 0.9,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      'DT / ${annualBilling ? 'an' : 'mois'}',
-                      style: const TextStyle(
-                        color: Color(0xFF6B7280),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+            ],
           ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-              child: Column(
-                children: [
-                  ...features.map(
-                    (item) => _FeatureRow(
-                      text: item,
-                      color: accent,
-                    ),
+          child: Column(
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                decoration: BoxDecoration(
+                  color: headerTint,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
                   ),
-                  const SizedBox(height: 6),
-                  const Divider(height: 1, color: Color(0xFFE5E7EB)),
-                  const SizedBox(height: 6),
-                  ...bonus.map(
-                    (item) => _FeatureRow(
-                      text: item,
-                      color: accent,
-                      bonus: true,
-                    ),
-                  ),
-                  const Spacer(),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 38,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        if (isActive) return;
-                        onSelect();
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: buttonBackground,
-                        foregroundColor: buttonForeground,
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFFE2E8F0)),
+                          ),
+                          child: Icon(icon, color: iconColor, size: 16),
                         ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (isActive) ...[
-                            const Icon(Icons.check, size: 14),
-                            const SizedBox(width: 6),
-                          ],
-                          Text(
-                            buttonLabel,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 13,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Color(0xFF0F172A),
+                              fontWeight: FontWeight.w800,
+                              fontSize: compactCard ? 24 : 30,
+                              height: 0.95,
                             ),
                           ),
-                        ],
+                        ),
+                        if (effectiveBadgeText != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: effectiveBadgeColor,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              effectiveBadgeText,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 9.5,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Color(0xFF6B7280),
+                        fontSize: 10.5,
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          '$displayedPrice',
+                          style: TextStyle(
+                            color: Color(0xFF0F172A),
+                            fontWeight: FontWeight.w900,
+                            fontSize: compactCard ? 34 : 40,
+                            height: 0.9,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'DT / ${annualBilling ? 'an' : 'mois'}',
+                          style: const TextStyle(
+                            color: Color(0xFF6B7280),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                  child: Column(
+                    children: [
+                      ...features.map(
+                        (item) => _FeatureRow(
+                          text: item,
+                          color: accent,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Divider(height: 1, color: Color(0xFFE5E7EB)),
+                      const SizedBox(height: 6),
+                      ...bonus.map(
+                        (item) => _FeatureRow(
+                          text: item,
+                          color: accent,
+                          bonus: true,
+                        ),
+                      ),
+                      const Spacer(),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 38,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (isActive) return;
+                            onSelect();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: buttonBackground,
+                            foregroundColor: buttonForeground,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (isActive) ...[
+                                const Icon(Icons.check, size: 14),
+                                const SizedBox(width: 6),
+                              ],
+                              Flexible(
+                                child: Text(
+                                  buttonLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -910,6 +964,7 @@ class _SubscriptionCheckoutDialogState
     final maxWidth = MediaQuery.of(context).size.width;
     final dialogWidth =
         maxWidth < 540 ? (maxWidth - 22).clamp(300.0, 500.0).toDouble() : 500.0;
+    final compactDialog = dialogWidth < 360;
 
     return SafeArea(
       child: Center(
@@ -946,35 +1001,19 @@ class _SubscriptionCheckoutDialogState
                               'Confirmer l\'abonnement',
                               style: TextStyle(
                                 color: Color(0xFF111827),
-                                fontSize: 20,
+                                fontSize: 18,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            RichText(
-                              text: TextSpan(
-                                style: const TextStyle(
-                                  color: Color(0xFF64748B),
-                                  fontSize: 13,
-                                ),
-                                children: [
-                                  const TextSpan(text: 'Plan '),
-                                  TextSpan(
-                                    text: widget.planName,
-                                    style: TextStyle(
-                                      color: widget.accent,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  TextSpan(
-                                    text:
-                                        ' - ${widget.amount} DT /${widget.periodLabel}',
-                                    style: const TextStyle(
-                                      color: Color(0xFF111827),
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ],
+                            Text(
+                              'Plan ${widget.planName} - ${widget.amount} DT /${widget.periodLabel}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: const Color(0xFF64748B),
+                                fontSize: compactDialog ? 12 : 13,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
@@ -1104,87 +1143,91 @@ class _SubscriptionCheckoutDialogState
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(color: const Color(0xFFD1D5DB)),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.lock_outline,
-                                  size: 14, color: Color(0xFF9CA3AF)),
-                              const SizedBox(width: 6),
-                              const Expanded(
-                                child: Text(
-                                  'Paiement sécurisé',
-                                  style: TextStyle(
-                                    color: Color(0xFF9CA3AF),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 11,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                width: 34,
-                                height: 16,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(3),
-                                  border: Border.all(
-                                      color: const Color(0xFFD1D5DB),
-                                      width: 0.8),
-                                ),
-                                alignment: Alignment.center,
-                                child: const Text(
-                                  'Visa',
-                                  style: TextStyle(
-                                    color: Color(0xFF1F2937),
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 9,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
-                              SizedBox(
-                                width: 22,
-                                height: 12,
-                                child: Stack(
-                                  children: [
-                                    Positioned(
-                                      left: 0,
-                                      child: const CircleAvatar(
-                                        radius: 6,
-                                        backgroundColor: Color(0xFFF97316),
+                              const Row(
+                                children: [
+                                  Icon(Icons.lock_outline,
+                                      size: 14, color: Color(0xFF9CA3AF)),
+                                  SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Paiement sécurisé',
+                                      style: TextStyle(
+                                        color: Color(0xFF9CA3AF),
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 11,
                                       ),
                                     ),
-                                    Positioned(
-                                      right: 0,
-                                      child: const CircleAvatar(
-                                        radius: 6,
-                                        backgroundColor: Color(0xFFEF4444),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 34,
+                                    height: 16,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(3),
+                                      border: Border.all(
+                                          color: const Color(0xFFD1D5DB),
+                                          width: 0.8),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: const Text(
+                                      'Visa',
+                                      style: TextStyle(
+                                        color: Color(0xFF1F2937),
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 9,
                                       ),
                                     ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 5),
-                                child: const Text(
-                                  'e-DINAR',
-                                  style: TextStyle(
-                                    color: Color(0xFF6B7280),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 9,
                                   ),
-                                ),
-                              ),
-                              Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 5),
-                                child: const Text(
-                                  'C-Cash',
-                                  style: TextStyle(
-                                    color: Color(0xFF9CA3AF),
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 9,
+                                  SizedBox(
+                                    width: 22,
+                                    height: 12,
+                                    child: Stack(
+                                      children: [
+                                        Positioned(
+                                          left: 0,
+                                          child: const CircleAvatar(
+                                            radius: 6,
+                                            backgroundColor: Color(0xFFF97316),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          right: 0,
+                                          child: const CircleAvatar(
+                                            radius: 6,
+                                            backgroundColor: Color(0xFFEF4444),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                ),
+                                  const Text(
+                                    'e-DINAR',
+                                    style: TextStyle(
+                                      color: Color(0xFF6B7280),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 9,
+                                    ),
+                                  ),
+                                  const Text(
+                                    'C-Cash',
+                                    style: TextStyle(
+                                      color: Color(0xFF9CA3AF),
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 9,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -1316,46 +1359,62 @@ class _SubscriptionCheckoutDialogState
   }
 
   Widget _buildGatewayLogoHeader() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            gradient: const LinearGradient(
-              colors: [Color(0xFFF97316), Color(0xFFDC2626), Color(0xFF2563EB)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: const Icon(Icons.credit_card, color: Colors.white, size: 16),
-        ),
-        const SizedBox(width: 8),
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 330;
+        return Row(
+          mainAxisSize: MainAxisSize.max,
           children: [
-            Text(
-              'ClicToPay.com.tn',
-              style: TextStyle(
-                color: Color(0xFF0B4FA2),
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.2,
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                gradient: const LinearGradient(
+                  colors: [
+                    Color(0xFFF97316),
+                    Color(0xFFDC2626),
+                    Color(0xFF2563EB)
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
               ),
+              child:
+                  const Icon(Icons.credit_card, color: Colors.white, size: 16),
             ),
-            Text(
-              'by Monétique Tunisie',
-              style: TextStyle(
-                color: Color(0xFF6B7280),
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'ClicToPay.com.tn',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: const Color(0xFF0B4FA2),
+                      fontSize: compact ? 20 : 24,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.2,
+                    ),
+                  ),
+                  const Text(
+                    'by Monétique Tunisie',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Color(0xFF6B7280),
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 }

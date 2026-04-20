@@ -15,8 +15,10 @@ class AssociationBudgetUsageView extends GetView<AssociationBudgetController> {
     return Scaffold(
       backgroundColor: const Color(0xFFDCE5F1),
       body: LayoutBuilder(builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 1080;
+
         return Row(children: [
-          if (constraints.maxWidth >= 1080) const CustomSidebar(),
+          if (!isCompact) const CustomSidebar(),
           Expanded(
             child: Column(children: [
               const DashboardTopBar(),

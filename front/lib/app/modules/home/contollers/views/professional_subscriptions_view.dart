@@ -14,7 +14,7 @@ class ProfessionalSubscriptionsView extends StatelessWidget {
       backgroundColor: const Color(0xFFF1F5F9),
       body: Row(
         children: [
-          const CustomSidebar(),
+          if (!isCompact) const CustomSidebar(),
           Expanded(
             child: Column(
               children: [

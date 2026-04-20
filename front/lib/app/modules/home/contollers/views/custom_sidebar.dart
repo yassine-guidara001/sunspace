@@ -11,25 +11,72 @@ class CustomSidebar extends StatelessWidget {
 
   static const double _expandedWidth = 280;
   static const double _collapsedWidth = 74;
-  static const double _mobileBreakpoint = 920;
+  static const double _mobileBreakpoint = 720;
+  static bool _isDrawerMenuOpen = false;
 
   final bool drawerMode;
 
   static Future<void> openDrawerMenu(BuildContext context) async {
-    final height = MediaQuery.of(context).size.height;
+    final overlayContext = Get.overlayContext ?? context;
 
-    await Get.dialog(
-      Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        child: SizedBox(
-          width: math.min(320, MediaQuery.of(context).size.width - 32),
-          height: height * 0.9,
-          child: const CustomSidebar(drawerMode: true),
-        ),
-      ),
-    );
+    if (_isDrawerMenuOpen) {
+      final rootNav = Navigator.of(overlayContext, rootNavigator: true);
+      if (rootNav.canPop()) {
+        rootNav.pop();
+      }
+      _isDrawerMenuOpen = false;
+      return;
+    }
+
+    final media = MediaQuery.of(context);
+    final topInset = 0.0;
+    final bottomInset = 0.0;
+    final drawerWidth = math.min(320.0, media.size.width * 0.78);
+    final drawerHeight = media.size.height - topInset - bottomInset;
+
+    _isDrawerMenuOpen = true;
+
+    try {
+      await showGeneralDialog<void>(
+        context: overlayContext,
+        barrierDismissible: true,
+        barrierLabel: 'Fermer menu',
+        barrierColor: Colors.black.withOpacity(0.45),
+        transitionDuration: const Duration(milliseconds: 180),
+        pageBuilder: (dialogContext, animation, secondaryAnimation) {
+          return Material(
+            type: MaterialType.transparency,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => Navigator.of(dialogContext).pop(),
+                  ),
+                ),
+                Positioned(
+                  top: topInset,
+                  left: 0,
+                  width: drawerWidth,
+                  height: drawerHeight,
+                  child: const CustomSidebar(drawerMode: true),
+                ),
+              ],
+            ),
+          );
+        },
+        transitionBuilder:
+            (dialogContext, animation, secondaryAnimation, child) {
+          final offset = Tween<Offset>(
+            begin: const Offset(-0.08, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut));
+          return SlideTransition(position: offset, child: child);
+        },
+      );
+    } finally {
+      _isDrawerMenuOpen = false;
+    }
   }
 
   // ── Récupère le rôle depuis le storage ───────────────────────────────────
@@ -120,24 +167,30 @@ class CustomSidebar extends StatelessWidget {
     }
 
     return Obx(() {
-      final isCollapsed = controller.isSidebarCollapsed.value;
+      final isCollapsed =
+          drawerMode ? false : controller.isSidebarCollapsed.value;
+      final showHeader = !drawerMode;
 
       return AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
-        width: isCollapsed ? _collapsedWidth : _expandedWidth,
+        width: drawerMode
+            ? double.infinity
+            : (isCollapsed ? _collapsedWidth : _expandedWidth),
         height: double.infinity,
         decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(right: BorderSide(color: Color(0xFFE2E8F0))),
         ),
-        padding: EdgeInsets.fromLTRB(
-            isCollapsed ? 8 : 16, 20, isCollapsed ? 8 : 16, 12),
+        padding: EdgeInsets.fromLTRB(isCollapsed ? 8 : 16, drawerMode ? 10 : 20,
+            isCollapsed ? 8 : 16, 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(controller, isCollapsed),
-            const SizedBox(height: 20),
+            if (showHeader) ...[
+              _buildHeader(controller, isCollapsed),
+              const SizedBox(height: 20),
+            ],
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -420,6 +473,8 @@ class CustomSidebar extends StatelessWidget {
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(displayName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontWeight: FontWeight.bold)),
               Text(
                 displayEmail.isEmpty ? 'email indisponible' : displayEmail,
@@ -514,7 +569,12 @@ class CustomSidebar extends StatelessWidget {
       );
 
       final tappable = InkWell(
-        onTap: () => controller.changeMenu(index, route),
+        onTap: () {
+          controller.changeMenu(index, route);
+          if (drawerMode && (Get.isDialogOpen ?? false)) {
+            Get.back();
+          }
+        },
         borderRadius: BorderRadius.circular(12),
         child: content,
       );

@@ -23,12 +23,14 @@ class NotificationsPage extends GetView<NotificationsController> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F6FB),
-      appBar: _buildAppBar(),
+      appBar: _buildAppBar(context),
       body: _buildBody(),
     );
   }
 
-  PreferredSizeWidget _buildAppBar() {
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    final compact = MediaQuery.of(context).size.width < 420;
+
     return AppBar(
       toolbarHeight: 78,
       backgroundColor: Colors.white,
@@ -42,7 +44,7 @@ class NotificationsPage extends GetView<NotificationsController> {
           Text(
             'Notifications',
             style: GoogleFonts.inter(
-              fontSize: 28,
+              fontSize: compact ? 22 : 28,
               fontWeight: FontWeight.w700,
               color: _textPrimary,
               letterSpacing: -0.5,
@@ -52,7 +54,7 @@ class NotificationsPage extends GetView<NotificationsController> {
           Text(
             'Ce qu’il faut savoir',
             style: GoogleFonts.inter(
-              fontSize: 13,
+              fontSize: compact ? 12 : 13,
               fontWeight: FontWeight.w400,
               color: _textSecondary,
             ),
@@ -69,7 +71,7 @@ class NotificationsPage extends GetView<NotificationsController> {
               onPressed: controller.markAllAsRead,
               icon: const Icon(Icons.done_all_rounded, size: 18),
               label: Text(
-                'Tout marquer',
+                compact ? 'Tout' : 'Tout marquer',
                 style: GoogleFonts.inter(
                     fontSize: 13, fontWeight: FontWeight.w500),
               ),
@@ -191,7 +193,7 @@ class NotificationsPage extends GetView<NotificationsController> {
                       Text(
                         'Notifications',
                         style: GoogleFonts.inter(
-                          fontSize: 30,
+                          fontSize: isCompact ? 24 : 30,
                           fontWeight: FontWeight.w800,
                           color: _textPrimary,
                           height: 1.05,
@@ -945,10 +947,14 @@ class _ShimmerCard extends StatelessWidget {
                   color: NotificationsPage._border,
                 ),
                 const SizedBox(height: 8),
-                Container(
-                  width: 220,
-                  height: 12,
-                  color: NotificationsPage._border,
+                FractionallySizedBox(
+                  widthFactor: 0.75,
+                  alignment: Alignment.centerLeft,
+                  child: Container(
+                    width: double.infinity,
+                    height: 12,
+                    color: NotificationsPage._border,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Row(

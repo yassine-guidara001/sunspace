@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_getx_app/app/data/models/course_model.dart';
@@ -29,7 +31,7 @@ class CoursesView extends GetView<CourseController> {
       backgroundColor: const Color(0xFFF1F5F9),
       body: Row(
         children: [
-          const CustomSidebar(),
+          if (!isCompact) const CustomSidebar(),
           Expanded(
             child: Obx(() {
               final selectedMenu = _homeController.selectedMenu.value;
@@ -1043,20 +1045,23 @@ class CoursesView extends GetView<CourseController> {
               icon: const Icon(Icons.menu, color: Color(0xFF475569)),
             ),
           ] else
-            SizedBox(
-              width: 300,
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'Rechercher...',
-                  hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
-                  isDense: true,
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide.none,
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: SizedBox(
+                width: double.infinity,
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'Rechercher...',
+                    hintStyle: const TextStyle(color: Color(0xFF9CA3AF)),
+                    isDense: true,
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 10),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide.none,
+                    ),
                   ),
                 ),
               ),
@@ -1098,55 +1103,63 @@ class CoursesView extends GetView<CourseController> {
   }
 
   Widget _buildHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.menu_book_outlined,
-                    color: Color(0xFF2563EB), size: 28),
-                SizedBox(width: 10),
-                Text(
-                  'Mes Formations',
-                  style: TextStyle(
-                    height: 1,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF0F172A),
+    return LayoutBuilder(builder: (context, constraints) {
+      final isCompact = constraints.maxWidth < 760;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.menu_book_outlined,
+                      color: Color(0xFF2563EB), size: 28),
+                  SizedBox(width: 10),
+                  Text(
+                    'Mes Formations',
+                    style: TextStyle(
+                      height: 1,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF0F172A),
+                    ),
                   ),
+                ],
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Gérez vos cours, modules et leçons',
+                style: TextStyle(
+                  color: Color(0xFF6B7280),
                 ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Text(
-              'Gérez vos cours, modules et leçons',
-              style: TextStyle(
-                color: Color(0xFF6B7280),
               ),
-            ),
-          ],
-        ),
-        SizedBox(
-          height: 42,
-          child: ElevatedButton.icon(
-            onPressed: () => _showCourseDialog(context),
-            icon: const Icon(Icons.add, size: 18, color: Colors.white),
-            label: const Text('Nouveau Cours'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF0066D9),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+            ],
+          ),
+          SizedBox(
+            width: isCompact ? constraints.maxWidth : null,
+            height: 42,
+            child: ElevatedButton.icon(
+              onPressed: () => _showCourseDialog(context),
+              icon: const Icon(Icons.add, size: 18, color: Colors.white),
+              label: const Text('Nouveau Cours'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0066D9),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
               ),
-              elevation: 0,
             ),
           ),
-        ),
-      ],
-    );
+        ],
+      );
+    });
   }
 
   Widget _buildSearchBar({String hintText = 'Rechercher un cours...'}) {
@@ -1184,50 +1197,69 @@ class CoursesView extends GetView<CourseController> {
   }
 
   Widget _buildCoursesTable(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Obx(() {
-        if (controller.isLoading.value) {
-          return const Padding(
-            padding: EdgeInsets.all(40),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
+    return LayoutBuilder(builder: (context, constraints) {
+      final isCompact = constraints.maxWidth < 980;
 
-        final courses = controller.filteredCourses;
+      return Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Obx(() {
+          if (controller.isLoading.value) {
+            return const Padding(
+              padding: EdgeInsets.all(40),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
 
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-              child: Row(
-                children: const [
-                  Expanded(flex: 3, child: _HeaderCell('Titre')),
-                  Expanded(flex: 2, child: _HeaderCell('Niveau')),
-                  Expanded(flex: 2, child: _HeaderCell('Prix')),
-                  Expanded(flex: 2, child: _HeaderCell('Statut')),
-                  Expanded(flex: 2, child: _HeaderCell('Créé le')),
-                  Expanded(flex: 1, child: _HeaderCell('Actions')),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
-            if (courses.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 28),
-                child: Text(
-                  'Aucun cours trouvé',
-                  style: TextStyle(
-                    color: Color(0xFF64748B),
-                  ),
+          final courses = controller.filteredCourses;
+
+          if (courses.isEmpty) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 28),
+              child: Text(
+                'Aucun cours trouvé',
+                style: TextStyle(
+                  color: Color(0xFF64748B),
                 ),
-              )
-            else
+              ),
+            );
+          }
+
+          if (isCompact) {
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: courses.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (_, index) => Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                child: _buildMobileCourseCard(context, courses[index]),
+              ),
+            );
+          }
+
+          return Column(
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+                child: Row(
+                  children: const [
+                    Expanded(flex: 3, child: _HeaderCell('Titre')),
+                    Expanded(flex: 2, child: _HeaderCell('Niveau')),
+                    Expanded(flex: 2, child: _HeaderCell('Prix')),
+                    Expanded(flex: 2, child: _HeaderCell('Statut')),
+                    Expanded(flex: 2, child: _HeaderCell('Créé le')),
+                    Expanded(flex: 1, child: _HeaderCell('Actions')),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: Colors.grey.withOpacity(0.2)),
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -1237,9 +1269,59 @@ class CoursesView extends GetView<CourseController> {
                 itemBuilder: (_, index) =>
                     _buildCourseRow(context, courses[index]),
               ),
-          ],
-        );
-      }),
+            ],
+          );
+        }),
+      );
+    });
+  }
+
+  Widget _buildMobileCourseCard(BuildContext context, Course course) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            course.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              Text('Niveau: ${course.level}'),
+              Text('Prix: ${course.price.toStringAsFixed(2)} TND'),
+              Text('Créé: ${_formatDate(course.createdAt)}'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildStatusBadge(course.status),
+              const Spacer(),
+              IconButton(
+                onPressed: () => _showCourseDialog(context, course: course),
+                icon: const Icon(Icons.edit_outlined,
+                    size: 18, color: Colors.grey),
+              ),
+              IconButton(
+                onPressed: () => _confirmDelete(course),
+                icon: const Icon(Icons.delete_outline,
+                    size: 18, color: Colors.grey),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -1252,6 +1334,8 @@ class CoursesView extends GetView<CourseController> {
             flex: 3,
             child: Text(
               course.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 fontWeight: FontWeight.w600,
               ),
@@ -1337,7 +1421,7 @@ class CoursesView extends GetView<CourseController> {
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           child: StatefulBuilder(builder: (context, setState) {
             return Container(
-              width: 430,
+              width: math.min(430, MediaQuery.of(context).size.width - 24),
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1479,23 +1563,19 @@ class CoursesView extends GetView<CourseController> {
                   const SizedBox(height: 10),
                   const Text('Statut', style: _LabelStyle()),
                   const SizedBox(height: 6),
-                  SizedBox(
-                    width: 160,
-                    child: DropdownButtonFormField<String>(
-                      value: selectedStatus,
-                      items: const [
-                        DropdownMenuItem(
-                            value: 'Brouillon', child: Text('Brouillon')),
-                        DropdownMenuItem(
-                            value: 'Publié', child: Text('Publié')),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) {
-                          setState(() => selectedStatus = v);
-                        }
-                      },
-                      decoration: _dialogInputDecoration(null),
-                    ),
+                  DropdownButtonFormField<String>(
+                    value: selectedStatus,
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'Brouillon', child: Text('Brouillon')),
+                      DropdownMenuItem(value: 'Publié', child: Text('Publié')),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => selectedStatus = v);
+                      }
+                    },
+                    decoration: _dialogInputDecoration(null),
                   ),
                   const SizedBox(height: 14),
                   Align(

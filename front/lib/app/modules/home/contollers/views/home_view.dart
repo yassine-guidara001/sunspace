@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_getx_app/app/modules/home/contollers/home_controller.dart';
 import 'package:get/get.dart';
@@ -13,7 +15,7 @@ class HomeView extends GetView<HomeController> {
       backgroundColor: const Color(0xFFF1F5F9),
       body: Row(
         children: [
-          CustomSidebar(),
+          if (!isCompact) CustomSidebar(),
           Expanded(
             child: Column(
               children: [
@@ -28,7 +30,7 @@ class HomeView extends GetView<HomeController> {
                         const SizedBox(height: 32),
                         _buildSearchBar(),
                         const SizedBox(height: 16),
-                        _buildUsersTable(),
+                        _buildUsersTable(isCompact),
                       ],
                     ),
                   ),
@@ -92,43 +94,55 @@ class HomeView extends GetView<HomeController> {
   }
 
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.people_outline, size: 28, color: Colors.blue),
-                SizedBox(width: 12),
-                Text("Gestion des utilisateurs",
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, color: Color(0xFF1E293B))),
-              ],
-            ),
-            SizedBox(height: 4),
-            Text("Gérez les utilisateurs et leurs permissions",
-                style: TextStyle(
-                  color: Colors.grey,
-                )),
-          ],
-        ),
-        ElevatedButton.icon(
-          onPressed: _showAddUserDialog,
-          icon: const Icon(Icons.add, size: 18, color: Colors.white),
-          label: const Text("Nouvel utilisateur"),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF007BFF),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            shape:
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            elevation: 0,
+    return LayoutBuilder(builder: (context, constraints) {
+      final isCompact = constraints.maxWidth < 720;
+      return Wrap(
+        spacing: 12,
+        runSpacing: 12,
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.people_outline, size: 28, color: Colors.blue),
+                  SizedBox(width: 12),
+                  Text("Gestion des utilisateurs",
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1E293B))),
+                ],
+              ),
+              SizedBox(height: 4),
+              Text("Gérez les utilisateurs et leurs permissions",
+                  style: TextStyle(
+                    color: Colors.grey,
+                  )),
+            ],
           ),
-        ),
-      ],
-    );
+          SizedBox(
+            width: isCompact ? constraints.maxWidth : null,
+            child: ElevatedButton.icon(
+              onPressed: _showAddUserDialog,
+              icon: const Icon(Icons.add, size: 18, color: Colors.white),
+              label: const Text("Nouvel utilisateur"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF007BFF),
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ],
+      );
+    });
   }
 
   Widget _buildSearchBar() {
@@ -165,7 +179,7 @@ class HomeView extends GetView<HomeController> {
     );
   }
 
-  Widget _buildUsersTable() {
+  Widget _buildUsersTable(bool isCompact) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -191,6 +205,81 @@ class HomeView extends GetView<HomeController> {
               child: Center(
                   child: Text("Aucun utilisateur trouvé",
                       style: TextStyle(color: Colors.grey))));
+        }
+
+        if (isCompact) {
+          return ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: users.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final user = users[index];
+              return Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF1E293B),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      user.email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Color(0xFF475569)),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 6,
+                      children: [
+                        Text('Rôle: ${user.role}'),
+                        Text('Statut: ${user.status}'),
+                        Text(
+                          'Inscrit: ${user.registeredAt.day.toString().padLeft(2, '0')}/${user.registeredAt.month.toString().padLeft(2, '0')}/${user.registeredAt.year}',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.edit_outlined,
+                              size: 20, color: Colors.grey),
+                          onPressed: () {},
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(Icons.delete_outline,
+                              size: 20, color: Colors.grey),
+                          onPressed: () => controller.deleteUser(user.id),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          );
         }
 
         return Column(
@@ -248,6 +337,8 @@ class HomeView extends GetView<HomeController> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(user.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
                     )),
@@ -274,6 +365,8 @@ class HomeView extends GetView<HomeController> {
                 const Icon(Icons.mail_outline, size: 16, color: Colors.grey),
                 const SizedBox(width: 8),
                 Text(user.email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(color: Color(0xFF475569))),
               ],
             ),
@@ -366,7 +459,7 @@ class HomeView extends GetView<HomeController> {
       Dialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(
-          width: 500,
+          width: math.min(500, Get.width - 24),
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,

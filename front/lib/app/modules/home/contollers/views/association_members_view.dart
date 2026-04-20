@@ -218,189 +218,289 @@ class _AssociationMembersViewState extends State<AssociationMembersView> {
 
   @override
   Widget build(BuildContext context) {
+    final isCompact = MediaQuery.of(context).size.width < 920;
+
     return Scaffold(
       backgroundColor: const Color(0xFFEFF4FC),
-      body: Row(children: [
-        const CustomSidebar(),
-        Expanded(
-          child: Column(children: [
-            const DashboardTopBar(),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Header ──────────────────────────────────────────
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      body: Row(
+        children: [
+          if (!isCompact) const CustomSidebar(),
+          Expanded(
+            child: Column(
+              children: [
+                const DashboardTopBar(),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('MEMBRES',
-                                  style: TextStyle(
-                                      color: Color(0xFF0F172A),
-                                      fontWeight: FontWeight.w800,
-                                      fontSize: 28,
-                                      letterSpacing: -0.3)),
-                              Text('Association : ${_assocName ?? '...'}',
-                                  style: const TextStyle(
-                                      color: Color(0xFF64748B), fontSize: 13)),
-                            ]),
-                        Row(children: [
-                          // Bouton Invitation
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              final invitedEmail = await showDialog<String>(
-                                context: context,
-                                builder: (_) => _InvitationDialog(
-                                  allUsers: _allUsers,
-                                  currentMembers: _members,
-                                  assocDocId: _assocDocId,
-                                  headers: _headers,
-                                ),
-                              );
-                              if (invitedEmail != null &&
-                                  invitedEmail.isNotEmpty) {
-                                final invitedUser = _allUsers.firstWhere(
-                                  (user) =>
-                                      (user['email']?.toString() ?? '')
-                                          .toLowerCase() ==
-                                      invitedEmail.toLowerCase(),
-                                  orElse: () => {
-                                    'email': invitedEmail,
-                                    'username': invitedEmail,
-                                    'blocked': false,
-                                    'confirmed': true,
-                                  },
-                                );
+                        LayoutBuilder(
+                          builder: (context, headerConstraints) {
+                            final compactHeader =
+                                headerConstraints.maxWidth < 760;
 
-                                setState(() {
-                                  final invitedId =
-                                      _extractIntId(invitedUser['id']);
-                                  final alreadyPresent = _members.any(
-                                    (member) =>
-                                        _extractIntId(member['id']) ==
-                                            invitedId &&
-                                        invitedId > 0,
-                                  );
-
-                                  if (!alreadyPresent) {
-                                    _members = [
-                                      ..._members,
-                                      Map<String, dynamic>.from(invitedUser),
-                                    ];
-                                    _applyFilter();
-                                  }
-                                });
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Invitation envoyée !'),
-                                    backgroundColor: Color(0xFF22C55E),
+                            final invitationButton = ElevatedButton.icon(
+                              onPressed: () async {
+                                final invitedEmail = await showDialog<String>(
+                                  context: context,
+                                  builder: (_) => _InvitationDialog(
+                                    allUsers: _allUsers,
+                                    currentMembers: _members,
+                                    assocDocId: _assocDocId,
+                                    headers: _headers,
                                   ),
                                 );
-                              }
-                            },
-                            icon:
-                                const Icon(Icons.person_add_outlined, size: 15),
-                            label: const Text('INVITATION',
-                                style: TextStyle(
-                                    fontSize: 12, fontWeight: FontWeight.w700)),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF0B6BFF),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10)),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 10),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          // Refresh
-                          Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
+                                if (invitedEmail != null &&
+                                    invitedEmail.isNotEmpty) {
+                                  final invitedUser = _allUsers.firstWhere(
+                                    (user) =>
+                                        (user['email']?.toString() ?? '')
+                                            .toLowerCase() ==
+                                        invitedEmail.toLowerCase(),
+                                    orElse: () => {
+                                      'email': invitedEmail,
+                                      'username': invitedEmail,
+                                      'blocked': false,
+                                      'confirmed': true,
+                                    },
+                                  );
+
+                                  setState(() {
+                                    final invitedId =
+                                        _extractIntId(invitedUser['id']);
+                                    final alreadyPresent = _members.any(
+                                      (member) =>
+                                          _extractIntId(member['id']) ==
+                                              invitedId &&
+                                          invitedId > 0,
+                                    );
+
+                                    if (!alreadyPresent) {
+                                      _members = [
+                                        ..._members,
+                                        Map<String, dynamic>.from(invitedUser),
+                                      ];
+                                      _applyFilter();
+                                    }
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Invitation envoyée !'),
+                                      backgroundColor: Color(0xFF22C55E),
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.person_add_outlined,
+                                  size: 15),
+                              label: const Text('INVITATION',
+                                  style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF0B6BFF),
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
+                              ),
+                            );
+
+                            final refreshButton = Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(10),
-                                border:
-                                    Border.all(color: const Color(0xFFE2E8F0))),
-                            child: IconButton(
-                              onPressed: _loadAll,
-                              icon: const Icon(Icons.refresh,
-                                  color: Color(0xFF64748B), size: 16),
-                              padding: EdgeInsets.zero,
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: IconButton(
+                                onPressed: _loadAll,
+                                icon: const Icon(Icons.refresh,
+                                    color: Color(0xFF64748B), size: 16),
+                                padding: EdgeInsets.zero,
+                              ),
+                            );
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (compactHeader)
+                                  Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'MEMBRES',
+                                        style: TextStyle(
+                                          color: Color(0xFF0F172A),
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 28,
+                                          letterSpacing: -0.3,
+                                        ),
+                                      ),
+                                      Text(
+                                        'Association : ${_assocName ?? '...'}',
+                                        style: const TextStyle(
+                                          color: Color(0xFF64748B),
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          Expanded(child: invitationButton),
+                                          const SizedBox(width: 8),
+                                          refreshButton,
+                                        ],
+                                      ),
+                                    ],
+                                  )
+                                else
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'MEMBRES',
+                                            style: TextStyle(
+                                              color: Color(0xFF0F172A),
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 28,
+                                              letterSpacing: -0.3,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Association : ${_assocName ?? '...'}',
+                                            style: const TextStyle(
+                                              color: Color(0xFF64748B),
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      Row(
+                                        children: [
+                                          invitationButton,
+                                          const SizedBox(width: 8),
+                                          refreshButton,
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: [
+                            SizedBox(
+                              width: isCompact ? double.infinity : 220,
+                              child: _statCard('TOTAL', '${_members.length}',
+                                  const Color(0xFF0F172A)),
                             ),
-                          ),
-                        ]),
+                            SizedBox(
+                              width: isCompact ? double.infinity : 220,
+                              child: _statCard('ADMINS', '$_adminCount',
+                                  const Color(0xFFA855F7)),
+                            ),
+                            SizedBox(
+                              width: isCompact ? double.infinity : 220,
+                              child: _statCard('MEMBRES', '$_memberCount',
+                                  const Color(0xFF3B82F6)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        LayoutBuilder(
+                          builder: (context, filterConstraints) {
+                            final filterCompact =
+                                filterConstraints.maxWidth < 760;
+                            final searchField = Container(
+                              height: 44,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFFE2E8F0),
+                                ),
+                              ),
+                              child: TextField(
+                                onChanged: (v) {
+                                  _search = v;
+                                  _applyFilter();
+                                },
+                                decoration: const InputDecoration(
+                                  hintText: 'Rechercher par nom ou email...',
+                                  hintStyle: TextStyle(
+                                    color: Color(0xFF94A3B8),
+                                    fontSize: 13,
+                                  ),
+                                  prefixIcon: Icon(Icons.search,
+                                      size: 18, color: Color(0xFF94A3B8)),
+                                  border: InputBorder.none,
+                                  contentPadding:
+                                      EdgeInsets.symmetric(vertical: 12),
+                                ),
+                              ),
+                            );
+
+                            final filters = Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: [
+                                _filterBtn('TOUS', 0),
+                                _filterBtn('ADMINS', 1),
+                                _filterBtn('MEMBRES', 2),
+                              ],
+                            );
+
+                            if (filterCompact) {
+                              return Column(
+                                children: [
+                                  SizedBox(
+                                      width: double.infinity,
+                                      child: searchField),
+                                  const SizedBox(height: 10),
+                                  Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: filters),
+                                ],
+                              );
+                            }
+
+                            return Row(
+                              children: [
+                                Expanded(child: searchField),
+                                const SizedBox(width: 10),
+                                filters,
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 20),
+                        _buildContent(),
                       ],
                     ),
-                    const SizedBox(height: 20),
-
-                    // ── Stats ──────────────────────────────────────────
-                    Row(children: [
-                      Expanded(
-                          child: _statCard('TOTAL', '${_members.length}',
-                              const Color(0xFF0F172A))),
-                      const SizedBox(width: 12),
-                      Expanded(
-                          child: _statCard('ADMINS', '$_adminCount',
-                              const Color(0xFFA855F7))),
-                      const SizedBox(width: 12),
-                      Expanded(
-                          child: _statCard('MEMBRES', '$_memberCount',
-                              const Color(0xFF3B82F6))),
-                    ]),
-                    const SizedBox(height: 20),
-
-                    // ── Search + Filtres ───────────────────────────────
-                    Row(children: [
-                      Expanded(
-                        child: Container(
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: const Color(0xFFE2E8F0)),
-                          ),
-                          child: TextField(
-                            onChanged: (v) {
-                              _search = v;
-                              _applyFilter();
-                            },
-                            decoration: const InputDecoration(
-                              hintText: 'Rechercher par nom ou email...',
-                              hintStyle: TextStyle(
-                                  color: Color(0xFF94A3B8), fontSize: 13),
-                              prefixIcon: Icon(Icons.search,
-                                  size: 18, color: Color(0xFF94A3B8)),
-                              border: InputBorder.none,
-                              contentPadding:
-                                  EdgeInsets.symmetric(vertical: 12),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      _filterBtn('TOUS', 0),
-                      const SizedBox(width: 6),
-                      _filterBtn('ADMINS', 1),
-                      const SizedBox(width: 6),
-                      _filterBtn('MEMBRES', 2),
-                    ]),
-                    const SizedBox(height: 20),
-
-                    // ── Content ────────────────────────────────────────
-                    _buildContent(),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ]),
-        ),
-      ]),
+          ),
+        ],
+      ),
     );
   }
 
@@ -908,6 +1008,8 @@ class _InvitationDialogState extends State<_InvitationDialog> {
                   return DropdownMenuItem<String>(
                     value: email,
                     child: Text(_userName(u),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontSize: 13, color: Color(0xFF0F172A))),
                   );
