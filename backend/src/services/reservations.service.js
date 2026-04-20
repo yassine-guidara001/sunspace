@@ -5,6 +5,31 @@ const notificationsService = require('./notifications.service');
 const prisma = new PrismaClient();
 
 class ReservationsService {
+  _normalizeSpaceStatus(status) {
+    const normalized = String(status || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+
+    if (!normalized) return '';
+    if (normalized.includes('occup')) return 'OCCUPIED';
+    if (normalized.includes('maintenance')) return 'MAINTENANCE';
+    if (normalized.includes('indispon')) return 'UNAVAILABLE';
+    if (normalized === 'busy') return 'OCCUPIED';
+    if (normalized === 'unavailable') return 'UNAVAILABLE';
+    return normalized;
+  }
+
+  _isSpaceReservable(spaceStatus) {
+    const normalized = this._normalizeSpaceStatus(spaceStatus);
+    return (
+      normalized !== 'OCCUPIED' &&
+      normalized !== 'MAINTENANCE' &&
+      normalized !== 'UNAVAILABLE'
+    );
+  }
+
   _isWithinOpeningHours(date) {
     if (!(date instanceof Date)) return false;
     const minutes = date.getHours() * 60 + date.getMinutes();
@@ -186,7 +211,7 @@ class ReservationsService {
     if (spaceId) {
       space = await prisma.space.findUnique({
         where: { id: spaceId },
-        select: { id: true },
+        select: { id: true, status: true },
       });
     } else {
       // If not numeric, try to find by documentId
@@ -194,7 +219,7 @@ class ReservationsService {
       if (spaceDocId) {
         space = await prisma.space.findFirst({
           where: { id: this._toInt(spaceDocId) },
-          select: { id: true },
+          select: { id: true, status: true },
         });
       }
     }
@@ -202,6 +227,11 @@ class ReservationsService {
     if (!space) {
       throw new ValidationError('Espace invalide');
     }
+
+    if (!this._isSpaceReservable(space.status)) {
+      throw new ValidationError('Cet espace est indisponible pour la réservation (occupé ou en maintenance)');
+    }
+
     spaceId = space.id;
 
     const startDateTime = this._parseDate(payload.start_datetime ?? payload.startDateTime);

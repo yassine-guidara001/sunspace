@@ -160,6 +160,7 @@ class CustomSidebar extends StatelessWidget {
     final isEnseignant = _isEnseignantOnly;
     final isEtudiant = _isEtudiantOnly;
     final isProfessionnel = _isProfessionnel;
+    final isAssociation = _isAssociation;
 
     final isGestionnaire = _isGestionnaire;
 
@@ -245,20 +246,24 @@ class CustomSidebar extends StatelessWidget {
     }
 
     // ── Section ASSOCIATION ──────────────────────────────────────────────
-    if (isAdmin) {
+    if (isAdmin || isAssociation) {
       items.add(const SizedBox(height: 20));
       items.add(_sectionTitle('ASSOCIATION', isCollapsed));
-      items.add(_menuItem(controller, 23, Icons.menu_book_outlined,
-          'Formations', Routes.FORMATIONS, isCollapsed));
+      if (isAdmin) {
+        items.add(_menuItem(controller, 23, Icons.menu_book_outlined,
+            'Formations', Routes.FORMATIONS, isCollapsed));
+      }
       items.add(_menuItem(controller, 24, Icons.people_outline, 'Membres',
           Routes.ASSOCIATION_MEMBERS, isCollapsed));
-      items.add(_menuItem(
-          controller,
-          25,
-          Icons.bar_chart_outlined,
-          'Budget & Utilisation',
-          Routes.ASSOCIATION_BUDGET_USAGE,
-          isCollapsed));
+      if (isAdmin) {
+        items.add(_menuItem(
+            controller,
+            25,
+            Icons.bar_chart_outlined,
+            'Budget & Utilisation',
+            Routes.ASSOCIATION_BUDGET_USAGE,
+            isCollapsed));
+      }
     }
 
     return items;

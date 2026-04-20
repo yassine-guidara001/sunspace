@@ -60,16 +60,22 @@ class _AssociationMembersViewState extends State<AssociationMembersView> {
     _loadAll();
   }
 
+  Uri _uriWithCacheBuster(String pathAndQuery) {
+    final separator = pathAndQuery.contains('?') ? '&' : '?';
+    return Uri.parse(
+        '$_baseUrl$pathAndQuery${separator}_ts=${DateTime.now().microsecondsSinceEpoch}');
+  }
+
   Future<void> _loadAll() async {
     setState(() => _isLoading = true);
     try {
       // 1. GET /associations?filters[admin][id][$eq]=userId&populate=*
       final assocRes = await http.get(
-        Uri.parse(
-            '$_baseUrl/associations?filters%5Badmin%5D%5Bid%5D%5B%24eq%5D=$_userId&populate=*'),
+        _uriWithCacheBuster(
+            '/associations?filters%5Badmin%5D%5Bid%5D%5B%24eq%5D=$_userId&populate=*'),
         headers: _headers,
       );
-      if (assocRes.statusCode == 200) {
+      if (assocRes.statusCode == 200 || assocRes.statusCode == 304) {
         final List assocData = jsonDecode(assocRes.body)['data'] ?? [];
         if (assocData.isNotEmpty) {
           final assoc = assocData.first as Map<String, dynamic>;
@@ -80,27 +86,26 @@ class _AssociationMembersViewState extends State<AssociationMembersView> {
           // 2. GET /associations/{documentId}?populate[members][populate]=*
           if (_assocDocId != null) {
             final membersRes = await http.get(
-              Uri.parse(
-                  '$_baseUrl/associations/$_assocDocId?populate%5Bmembers%5D%5Bpopulate%5D=*'),
+              _uriWithCacheBuster(
+                  '/associations/$_assocDocId?populate%5Bmembers%5D%5Bpopulate%5D=*'),
               headers: _headers,
             );
-            if (membersRes.statusCode == 200) {
+            if (membersRes.statusCode == 200 || membersRes.statusCode == 304) {
               final mBody = jsonDecode(membersRes.body);
               final mData = mBody['data'] ?? mBody;
-              final raw = mData['members'];
-              if (raw is List) _members = raw.cast<Map<String, dynamic>>();
+              _members = _normalizeMemberList(mData['members']);
             }
           }
         }
       }
 
       // 3. GET /users?populate=*
-      final usersRes = await http.get(Uri.parse('$_baseUrl/users?populate=*'),
+      final usersRes = await http.get(_uriWithCacheBuster('/users?populate=*'),
           headers: _headers);
-      if (usersRes.statusCode == 200) {
+      if (usersRes.statusCode == 200 || usersRes.statusCode == 304) {
         final uBody = jsonDecode(usersRes.body);
         final List uList = uBody is List ? uBody : (uBody['data'] ?? []);
-        _allUsers = uList.cast<Map<String, dynamic>>();
+        _allUsers = _normalizeUserList(uList);
       }
 
       _applyFilter();
@@ -130,7 +135,7 @@ class _AssociationMembersViewState extends State<AssociationMembersView> {
   }
 
   bool _isAdmin(Map<String, dynamic> m) {
-    final role = m['role']?['name']?.toString().toLowerCase() ?? '';
+    final role = _extractRoleName(m['role']);
     return role.contains('admin');
   }
 
@@ -143,6 +148,48 @@ class _AssociationMembersViewState extends State<AssociationMembersView> {
   }
 
   String _email(Map<String, dynamic> m) => m['email']?.toString() ?? '';
+
+  List<Map<String, dynamic>> _normalizeMemberList(dynamic raw) {
+    if (raw is! List) return [];
+    return raw.where((item) => item != null).map((item) {
+      if (item is Map) {
+        return Map<String, dynamic>.from(item);
+      }
+      return <String, dynamic>{'id': item};
+    }).toList();
+  }
+
+  List<Map<String, dynamic>> _normalizeUserList(dynamic raw) {
+    if (raw is! List) return [];
+    return raw.where((item) => item != null).map((item) {
+      if (item is Map) {
+        return Map<String, dynamic>.from(item);
+      }
+      return <String, dynamic>{'id': item};
+    }).toList();
+  }
+
+  String _extractRoleName(dynamic rawRole) {
+    if (rawRole is String) return rawRole.toLowerCase();
+    if (rawRole is Map) {
+      final roleMap = Map<String, dynamic>.from(rawRole);
+      final name = roleMap['name'] ?? roleMap['type'];
+      if (name != null) return name.toString().toLowerCase();
+      final data = roleMap['data'];
+      if (data is Map) {
+        final dataMap = Map<String, dynamic>.from(data);
+        final dataName = dataMap['name'] ?? dataMap['type'];
+        if (dataName != null) return dataName.toString().toLowerCase();
+      }
+    }
+    return '';
+  }
+
+  int _extractIntId(dynamic raw) {
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    return int.tryParse(raw?.toString() ?? '') ?? 0;
+  }
 
   String _joinDate(Map<String, dynamic> m) {
     final raw = m['createdAt']?.toString() ?? '';
@@ -205,8 +252,7 @@ class _AssociationMembersViewState extends State<AssociationMembersView> {
                           // Bouton Invitation
                           ElevatedButton.icon(
                             onPressed: () async {
-                              final result =
-                                  await showDialog<Map<String, dynamic>>(
+                              final invitedEmail = await showDialog<String>(
                                 context: context,
                                 builder: (_) => _InvitationDialog(
                                   allUsers: _allUsers,
@@ -215,10 +261,38 @@ class _AssociationMembersViewState extends State<AssociationMembersView> {
                                   headers: _headers,
                                 ),
                               );
-                              if (result != null) {
+                              if (invitedEmail != null &&
+                                  invitedEmail.isNotEmpty) {
+                                final invitedUser = _allUsers.firstWhere(
+                                  (user) =>
+                                      (user['email']?.toString() ?? '')
+                                          .toLowerCase() ==
+                                      invitedEmail.toLowerCase(),
+                                  orElse: () => {
+                                    'email': invitedEmail,
+                                    'username': invitedEmail,
+                                    'blocked': false,
+                                    'confirmed': true,
+                                  },
+                                );
+
                                 setState(() {
-                                  _members.add(result);
-                                  _applyFilter();
+                                  final invitedId =
+                                      _extractIntId(invitedUser['id']);
+                                  final alreadyPresent = _members.any(
+                                    (member) =>
+                                        _extractIntId(member['id']) ==
+                                            invitedId &&
+                                        invitedId > 0,
+                                  );
+
+                                  if (!alreadyPresent) {
+                                    _members = [
+                                      ..._members,
+                                      Map<String, dynamic>.from(invitedUser),
+                                    ];
+                                    _applyFilter();
+                                  }
                                 });
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -635,8 +709,8 @@ class _AssociationMembersViewState extends State<AssociationMembersView> {
     try {
       // Nouvelle liste sans le membre retiré
       final updatedIds = _members
-          .where((x) => x['id'] != m['id'])
-          .map((x) => x['id'])
+          .where((x) => _extractIntId(x['id']) != _extractIntId(m['id']))
+          .map((x) => _extractIntId(x['id']))
           .toList();
 
       // 1. PUT /associations/{documentId}
@@ -732,7 +806,7 @@ class _InvitationDialog extends StatefulWidget {
 }
 
 class _InvitationDialogState extends State<_InvitationDialog> {
-  Map<String, dynamic>? _selectedUser;
+  String? _selectedEmail;
   bool _isSending = false;
 
   List<Map<String, dynamic>> get _availableUsers => widget.allUsers;
@@ -742,6 +816,22 @@ class _InvitationDialogState extends State<_InvitationDialog> {
     final email = u['email']?.toString() ?? '';
     if (username.isNotEmpty && email.isNotEmpty) return '$username ($email)';
     return email.isNotEmpty ? email : username;
+  }
+
+  Map<String, dynamic>? _findUserByEmail(String email) {
+    for (final user in _availableUsers) {
+      if ((user['email']?.toString() ?? '').toLowerCase() ==
+          email.toLowerCase()) {
+        return user;
+      }
+    }
+    return null;
+  }
+
+  int _extractIntId(dynamic raw) {
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    return int.tryParse(raw?.toString() ?? '') ?? 0;
   }
 
   @override
@@ -805,8 +895,8 @@ class _InvitationDialogState extends State<_InvitationDialog> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              child: DropdownButton<Map<String, dynamic>>(
-                value: _selectedUser,
+              child: DropdownButton<String>(
+                value: _selectedEmail,
                 hint: const Text('Sélectionner un utilisateur',
                     style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
                 isExpanded: true,
@@ -814,14 +904,15 @@ class _InvitationDialogState extends State<_InvitationDialog> {
                 icon: const Icon(Icons.keyboard_arrow_down_rounded,
                     color: Color(0xFF64748B)),
                 items: _availableUsers.map((u) {
-                  return DropdownMenuItem(
-                    value: u,
+                  final email = u['email']?.toString() ?? '';
+                  return DropdownMenuItem<String>(
+                    value: email,
                     child: Text(_userName(u),
                         style: const TextStyle(
                             fontSize: 13, color: Color(0xFF0F172A))),
                   );
                 }).toList(),
-                onChanged: (v) => setState(() => _selectedUser = v),
+                onChanged: (v) => setState(() => _selectedEmail = v),
               ),
             ),
             const SizedBox(height: 24),
@@ -837,7 +928,7 @@ class _InvitationDialogState extends State<_InvitationDialog> {
               ),
               const Spacer(),
               ElevatedButton.icon(
-                onPressed: _selectedUser == null || _isSending
+                onPressed: _selectedEmail == null || _isSending
                     ? null
                     : _sendInvitation,
                 icon: _isSending
@@ -869,16 +960,16 @@ class _InvitationDialogState extends State<_InvitationDialog> {
   }
 
   Future<void> _sendInvitation() async {
-    if (_selectedUser == null || widget.assocDocId == null) return;
+    if (_selectedEmail == null || widget.assocDocId == null) return;
     setState(() => _isSending = true);
     try {
-      final email = _selectedUser!['email']?.toString() ?? '';
-      final baseUrl = 'http://193.111.250.244:3046/api';
+      final email = _selectedEmail!.trim();
+      const baseUrl = _AssociationMembersViewState._baseUrl;
 
       // 1. GET /users?filters[email][$eq]=email&populate=*
       final userRes = await http.get(
         Uri.parse(
-            '$baseUrl/users?filters%5Bemail%5D%5B%24eq%5D=${Uri.encodeComponent(email)}&populate=*'),
+            '$baseUrl/users?filters%5Bemail%5D%5B%24eq%5D=${Uri.encodeComponent(email)}&populate=*&_ts=${DateTime.now().microsecondsSinceEpoch}'),
         headers: widget.headers,
       );
       if (userRes.statusCode != 200) throw Exception('Utilisateur introuvable');
@@ -886,34 +977,38 @@ class _InvitationDialogState extends State<_InvitationDialog> {
       final List userList =
           userBody is List ? userBody : (userBody['data'] ?? []);
       if (userList.isEmpty) throw Exception('Utilisateur introuvable');
-      final userId = userList.first['id'];
+      final userId = _extractIntId(userList.first['id']);
+      if (userId == 0) throw Exception('Identifiant utilisateur invalide');
 
       // 2. GET /{assocDocId}?populate=members
       final assocRes = await http.get(
         Uri.parse(
-            '$baseUrl/associations/${widget.assocDocId}?populate=members'),
+            '$baseUrl/associations/${widget.assocDocId}?populate=members&_ts=${DateTime.now().microsecondsSinceEpoch}'),
         headers: widget.headers,
       );
-      if (assocRes.statusCode != 200)
+      if (assocRes.statusCode != 200 && assocRes.statusCode != 304)
         throw Exception('Association introuvable');
       final assocBody = jsonDecode(assocRes.body);
       final assocData = assocBody['data'] ?? assocBody;
       final List currentMembers = assocData['members'] ?? [];
       final List<int> memberIds = currentMembers
-          .map<int>((m) => (m['id'] is int)
-              ? m['id'] as int
-              : int.tryParse(m['id'].toString()) ?? 0)
+          .map<int>((m) => _extractIntId(m is Map ? m['id'] : m))
+          .where((id) => id > 0)
+          .toSet()
           .toList();
 
       // 3. GET /{assocDocId} puis PUT pour ajouter le membre
       final getRes = await http.get(
-        Uri.parse('$baseUrl/associations/${widget.assocDocId}'),
+        Uri.parse(
+            '$baseUrl/associations/${widget.assocDocId}?_ts=${DateTime.now().microsecondsSinceEpoch}'),
         headers: widget.headers,
       );
-      if (getRes.statusCode != 200) throw Exception('Erreur association');
+      if (getRes.statusCode != 200 && getRes.statusCode != 304) {
+        throw Exception('Erreur association');
+      }
 
       // PUT /associations/{documentId} avec les membres mis à jour
-      final newMemberIds = [...memberIds, userId];
+      final newMemberIds = <int>{...memberIds, userId}.toList();
       final putRes = await http.put(
         Uri.parse('$baseUrl/associations/${widget.assocDocId}'),
         headers: widget.headers,
@@ -925,7 +1020,7 @@ class _InvitationDialogState extends State<_InvitationDialog> {
       );
 
       if (putRes.statusCode == 200 || putRes.statusCode == 201) {
-        if (mounted) Navigator.of(context).pop(_selectedUser);
+        if (mounted) Navigator.of(context).pop(email);
       } else {
         final errBody = jsonDecode(putRes.body);
         throw Exception(errBody['error']?['message'] ?? '${putRes.statusCode}');

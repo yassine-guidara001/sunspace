@@ -1,0 +1,39 @@
+{
+  "reservations": [
+    {
+      "id": "rsv_1776435609004_2022",
+      "userId": "1",
+      "userName": "Jean",
+      "spaceId": "3",
+      "startAt": "2026-04-17T14:20:09.001Z",
+      "endAt": "2026-04-17T15:20:09.001Z",
+      "status": "cancelled",
+      "createdAt": "2026-04-17T14:20:09.004Z",
+      "updatedAt": "2026-04-17T14:20:09.009Z",
+      "cancelledAt": "2026-04-17T14:20:09.009Z"
+    },
+    {
+      "id": "rsv_1776435653533_8177",
+      "userId": "1",
+      "userName": "Jean",
+      "spaceId": "9",
+      "startAt": "2026-04-17T14:20:53.529Z",
+      "endAt": "2026-04-17T15:20:53.529Z",
+      "status": "cancelled",
+      "createdAt": "2026-04-17T14:20:53.533Z",
+      "updatedAt": "2026-04-17T14:20:53.537Z",
+      "cancelledAt": "2026-04-17T14:20:53.537Z"
+    },
+    {
+      "id": "rsv_1776436147444_737",
+      "userId": "1",
+      "userName": "admin",
+      "spaceId": "3",
+      "startAt": "2026-04-17T13:00:00.000Z",
+      "endAt": "2026-04-17T14:00:00.000Z",
+      "status": "active",
+      "createdAt": "2026-04-17T14:29:07.444Z",
+      "updatedAt": "2026-04-17T14:29:07.444Z"
+    }
+  ]
+}

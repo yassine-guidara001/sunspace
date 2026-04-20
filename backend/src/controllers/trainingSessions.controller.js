@@ -32,7 +32,10 @@ class TrainingSessionsController {
 
   async update(req, res, next) {
     try {
-      const result = await trainingSessionsService.updateSession(req.params.id, req.body);
+      const result = await trainingSessionsService.updateSession(req.params.id, req.body, {
+        userId: req.user?.id,
+        userRole: req.user?.role,
+      });
       return res.status(200).json(result);
     } catch (error) {
       next(error);

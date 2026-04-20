@@ -1,5 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
-const { NotFoundError, ValidationError } = require('../utils/errors');
+const { NotFoundError, ValidationError, AuthorizationError } = require('../utils/errors');
+const { hasAnyRole, MANAGER_ROLES } = require('../utils/roles');
 const notificationsService = require('./notifications.service');
 
 const prisma = new PrismaClient();
@@ -316,9 +317,25 @@ class TrainingSessionsService {
     return this._toItem(created);
   }
 
-  async updateSession(rawId, body) {
+  async updateSession(rawId, body, context = {}) {
     const id = this._parseId(rawId);
     const payload = this._extractPayload(body);
+    const requesterId = this._toInt(context.userId);
+    const isManager = hasAnyRole(context.userRole, MANAGER_ROLES);
+
+    if (!isManager) {
+      if (!requesterId) {
+        throw new AuthorizationError('Utilisateur non authentifié');
+      }
+
+      const payloadKeys = Object.keys(payload || {}).filter((key) => payload[key] !== undefined);
+      const onlyAttendeesUpdate = payloadKeys.length > 0 && payloadKeys.every((key) => key === 'attendees');
+      if (!onlyAttendeesUpdate) {
+        throw new AuthorizationError(
+          'Vous ne pouvez modifier que votre inscription à la session'
+        );
+      }
+    }
 
     const existing = await prisma.trainingSession.findUnique({
       where: { id },
@@ -379,6 +396,26 @@ class TrainingSessionsService {
 
     const attendeeIds = payload.attendees !== undefined ? this._toIntArray(payload.attendees) : null;
     const existingAttendeeIds = existing.attendees.map((item) => item.userId);
+
+    if (!isManager && attendeeIds !== null) {
+      const previousSet = new Set(existingAttendeeIds);
+      const nextSet = new Set(attendeeIds);
+      const changedIds = new Set([
+        ...existingAttendeeIds.filter((userId) => !nextSet.has(userId)),
+        ...attendeeIds.filter((userId) => !previousSet.has(userId)),
+      ]);
+
+      const canUpdateOnlySelf =
+        changedIds.size === 0 ||
+        (changedIds.size === 1 && changedIds.has(requesterId));
+
+      if (!canUpdateOnlySelf) {
+        throw new AuthorizationError(
+          'Vous ne pouvez inscrire ou désinscrire que votre propre compte'
+        );
+      }
+    }
+
     const addedAttendeeIds = attendeeIds !== null
       ? attendeeIds.filter((userId) => !existingAttendeeIds.includes(userId))
       : [];

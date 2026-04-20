@@ -17,13 +17,29 @@ router.post('/messages', authMiddleware, (req, res, next) =>
   communicationController.sendPrivateMessage(req, res, next)
 );
 
+router.delete('/messages', authMiddleware, (req, res, next) =>
+  communicationController.deletePrivateMessages(req, res, next)
+);
+
 router.patch('/messages/:id/read', authMiddleware, (req, res, next) =>
   communicationController.markPrivateMessageRead(req, res, next)
+);
+
+router.delete('/messages/old', authMiddleware, (req, res, next) =>
+  communicationController.deleteOldPrivateMessages(req, res, next)
 );
 
 // Forum
 router.get('/forum/threads', authMiddleware, (req, res, next) =>
   communicationController.getForumThreads(req, res, next)
+);
+
+router.delete('/forum/threads', authMiddleware, (req, res, next) =>
+  communicationController.deleteForumThreads(req, res, next)
+);
+
+router.delete('/forum/threads/old', authMiddleware, (req, res, next) =>
+  communicationController.deleteOldForumThreads(req, res, next)
 );
 
 router.get('/forum/threads/similar', authMiddleware, (req, res, next) =>
@@ -52,6 +68,10 @@ router.post('/forum/replies/reaction', authMiddleware, (req, res, next) =>
 
 router.post('/forum/assistant/improve', authMiddleware, (req, res, next) =>
   communicationController.improveForumDraft(req, res, next)
+);
+
+router.post('/assistant/chat', authMiddleware, (req, res, next) =>
+  communicationController.chatWithSunspaceAssistant(req, res, next)
 );
 
 router.get('/forum/notifications', authMiddleware, (req, res, next) =>

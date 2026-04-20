@@ -25,7 +25,6 @@ router.post(
 router.put(
   '/:id',
   authMiddleware,
-  requireRole(...managerRoles),
   trainingSessionsController.update
 );
 

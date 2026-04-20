@@ -48,6 +48,34 @@ class CommunicationController {
     }
   }
 
+  async deletePrivateMessages(req, res, next) {
+    try {
+      const result = await communicationService.deletePrivateMessages(
+        req.query,
+        {
+          userId: req.user?.id,
+        }
+      );
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteOldPrivateMessages(req, res, next) {
+    try {
+      const result = await communicationService.deleteOldPrivateMessages(
+        req.query,
+        {
+          userId: req.user?.id,
+        }
+      );
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async createForumThread(req, res, next) {
     try {
       const result = await communicationService.createForumThread(req.body, {
@@ -62,6 +90,34 @@ class CommunicationController {
   async getForumThreads(req, res, next) {
     try {
       const result = await communicationService.getForumThreads(req.query);
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteOldForumThreads(req, res, next) {
+    try {
+      const result = await communicationService.deleteOldForumThreads(
+        req.query,
+        {
+          userId: req.user?.id,
+        }
+      );
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteForumThreads(req, res, next) {
+    try {
+      const result = await communicationService.deleteForumThreads(
+        req.query,
+        {
+          userId: req.user?.id,
+        }
+      );
       return res.status(200).json(result);
     } catch (error) {
       next(error);
@@ -143,6 +199,17 @@ class CommunicationController {
   async improveForumDraft(req, res, next) {
     try {
       const result = await communicationService.improveForumDraft(req.body);
+      return res.status(200).json(result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async chatWithSunspaceAssistant(req, res, next) {
+    try {
+      const result = await communicationService.chatWithSunspaceAssistant(req.body, {
+        userId: req.user?.id,
+      });
       return res.status(200).json(result);
     } catch (error) {
       next(error);
